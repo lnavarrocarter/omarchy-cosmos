@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Episodes, engine and physics
+        run: node --test tests/
+      - name: Probes
+        run: python3 -m unittest discover -s tests -v
+      - name: Manifest and example config are valid JSON
+        run: |
+          python3 -c "import json; m = json.load(open('manifest.json')); assert m['id'] == 'lnavarrocarter.cosmos'"
+          python3 -c "import json; json.load(open('config.example.json'))"
+          for f in i18n/*.json; do python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f"; done

@@ -1,0 +1,89 @@
+{
+  "enabled": true,
+  "fps": 60,
+  "bezelGap": 0,
+  "verticalOffsets": {},
+  "zones": {},
+  "monitors": [],
+  "rocks": 12,
+  "cats": 2,
+  "tourists": 1,
+  "satellites": 2,
+  "comets": true,
+  "cometEvery": [
+    25,
+    70
+  ],
+  "sceneSeconds": [
+    14,
+    26
+  ],
+  "pauseOnFullscreen": true,
+  "seed": 1987,
+  "fleet": false,
+  "hub": false,
+  "fleetSeconds": 10,
+  "interactiveSeconds": 120,
+  "budgets": {
+    "claude": 5000000,
+    "codex": 3000000,
+    "copilot": 1000000
+  },
+  "weather": true,
+  "weatherSeconds": 15,
+  "projectMoons": false,
+  "maxMoons": 8,
+  "warp": true,
+  "screensaver": true,
+  "dayCycle": true,
+  "sunrise": "06:35",
+  "sunset": "20:40",
+  "hourlyRocket": true,
+  "episodes": true,
+  "episodeEvery": [
+    120,
+    300
+  ],
+  "eventEpisodes": true,
+  "idleSeconds": 120,
+  "specialDates": {},
+  "marathon": true,
+  "throwRocks": true,
+  "look": {
+    "home": "island",
+    "planet": {
+      "preset": "ringed"
+    },
+    "astronaut": {
+      "suit": "#eef0f7",
+      "visor": "#58c8ff",
+      "accent": "#ff9447"
+    },
+    "cat": {
+      "fur": "#f2a541",
+      "stripes": "#b86d1f"
+    },
+    "dog": {
+      "fur": "#e9cf93",
+      "spots": "#8a5a35",
+      "collar": "#e2524a"
+    },
+    "shuttle": {
+      "hull": "#eef0f7",
+      "stripe": "#e2524a"
+    },
+    "ships": {
+      "claude": "",
+      "codex": "",
+      "copilot": "",
+      "local": ""
+    }
+  },
+  "ai": {
+    "engine": "auto",
+    "ollamaUrl": "http://127.0.0.1:11434",
+    "ollamaModel": "",
+    "claude": false,
+    "claudeModel": ""
+  }
+}

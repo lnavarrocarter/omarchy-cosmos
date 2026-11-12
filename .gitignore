@@ -1,0 +1,7 @@
+# Your own settings: copy config.example.json to config.json. Kept out of git
+# so `omarchy plugin update` can fast-forward without touching them.
+config.json
+__pycache__/
+*.pyc
+*.bak*
+*.backup*

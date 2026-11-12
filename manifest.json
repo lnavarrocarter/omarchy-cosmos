@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "lnavarrocarter.cosmos",
+  "name": "Cosmos",
+  "version": "1.2.0",
+  "description": "Living pixel-art space scene spanning every monitor, with inertia, gravity and little castaway vignettes",
+  "author": "lnavarrocarter",
+  "license": "MIT",
+  "kinds": [
+    "service",
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "service": "Cosmos.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Cosmos",
+    "description": "Plays an episode on click; with the agent fleet on, shows missions and fuel per agent",
+    "defaultSection": "right",
+    "allowMultiple": false
+  }
+}
