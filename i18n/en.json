@@ -144,5 +144,11 @@
   "studio.fps60": "60 · smooth",
   "studio.customPlanet": "Your planet: %1 (choose a style above to replace it)",
   "studio.color.auto": "automatic",
-  "studio.color.useAuto": "use automatic"
+  "studio.color.useAuto": "use automatic",
+  "studio.section.station": "Space station",
+  "studio.station.classic": "Classic",
+  "studio.station.torus": "Torus",
+  "studio.station.spire": "Spire",
+  "studio.station.citadel": "Citadel",
+  "studio.planet.forge": "Broken Forge"
 }

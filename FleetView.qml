@@ -81,7 +81,7 @@ Item {
       readonly property string agent: modelData
       readonly property var pad: root.ready ? root.ctx.pads[agent] : { x: 0, y: 0 }
       readonly property var stats: root.info(agent)
-      readonly property real fuel: Fleet.fuel(agent, stats.tokens_today || 0, root.sim.cfg.budgets)
+      readonly property real fuel: Fleet.fuel(agent, stats, root.sim.cfg.budgets)
       readonly property var ship: root.sim.ships[agent] || null
       readonly property bool warming: !!ship && ship.mode === "warmup"
 
@@ -104,7 +104,7 @@ Item {
         }
       }
 
-      // Fuel tank: today's tokens drain it; Qwen runs on solar.
+      // Fuel tank: the plan limit (Codex) or today's tokens drain it; Qwen runs on solar.
       Item {
         x: -112; y: -64
         width: 20; height: 76

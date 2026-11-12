@@ -9,6 +9,7 @@ import "fleet.js" as Fleet
 import "daycycle.js" as Day
 import "episodes.js" as Episodes
 import "looks.js" as Looks
+import "stationlife.js" as StationLife
 
 // Cosmos: one living space scene spread across every screen.
 //
@@ -43,6 +44,7 @@ Item {
     hub: false,
     fleetSeconds: 10,
     interactiveSeconds: 120,
+    ollamaJournal: "",
     budgets: ({ claude: 5000000, codex: 3000000, copilot: 1000000 }),
     weather: true,
     weatherSeconds: 15,
@@ -93,9 +95,9 @@ Item {
     cfg = merged
     // Only what changes the layout restarts the simulation; colours, the
     // planet and switches take effect in place.
-    var home = Looks.normalize(merged.look).home
+    var normLook = Looks.normalize(merged.look)
     var key = JSON.stringify([merged.bezelGap, merged.verticalOffsets, merged.zones, merged.monitors, merged.rocks,
-      merged.cats, merged.tourists, merged.satellites, merged.seed, home])
+      merged.cats, merged.tourists, merged.satellites, merged.seed, normLook.home, normLook.station])
     if (key !== layoutKey) { layoutKey = key; rebuild() }
   }
 
@@ -234,7 +236,8 @@ Item {
     var homeLay = Looks.HOME_LAYOUT[look.home] || Looks.HOME_LAYOUT.island
     if (c) at.push({ kind: "castaway", x: c.x, y: height * 0.62, gm: 45000, soft: 60, radius: homeLay.radius || 175,
       solidDy: homeLay.solidDy || 0 })
-    if (st) at.push({ kind: "station", x: st.x, y: height * 0.40, gm: 60000, soft: 50, radius: 150 })
+    if (st) at.push({ kind: "station", x: st.x, y: height * 0.40, gm: 60000, soft: 50,
+      radius: StationLife.layout(look.station).radius })
     attractors = at
 
     buildSprites()
@@ -282,6 +285,19 @@ Item {
       shuttle: Sprites.shuttle(pal.shuttle),
       wheel: Sprites.wheel(40),
       habitat: Sprites.habitat(44, 16),
+      // The chosen station model and the machine planet's orbit (orbital.js).
+      stationBody: look.station === "torus" ? Sprites.stationTorus(70) : look.station === "spire" ? Sprites.stationSpire()
+        : look.station === "citadel" ? Sprites.stationCitadel() : null,
+      stationSpindle: look.station === "torus" ? Sprites.stationSpindle(210) : null,
+      orbit: look.planet.style !== "tech" ? null : ({
+        wheel: Sprites.orbStation("wheel"), cross: Sprites.orbStation("cross"),
+        mothership: [Sprites.mothership(3, "#ffd65a"), Sprites.mothership(10, "#ff9447"), Sprites.mothership(17, "#ffd65a")],
+        junk: [Sprites.junk(0), Sprites.junk(1), Sprites.junk(2), Sprites.junk(3), Sprites.junk(4)],
+        chunk: [0, 1, 2].map(function(i) {
+          return Sprites.crustChunk(i, look.planet.colors[2], look.planet.colors[0], look.planet.colors[4])
+        }),
+        climber: Sprites.climber(), turret: Sprites.turret()
+      }),
       fire: [Sprites.fire(0), Sprites.fire(1), Sprites.fire(2)],
       moon: [Sprites.moon(2, 7, "#b9c3d9"), Sprites.moon(5, 5, "#d9a7b9"), Sprites.moon(9, 6, "#9fd9c4"),
              Sprites.moon(13, 6, "#e0c48f"), Sprites.moon(17, 5, "#a9b8ff"), Sprites.moon(21, 7, "#f0a8a0"),
@@ -809,6 +825,7 @@ Item {
   Process {
     id: fleetProc
     command: ["python3", root.pluginPath("fleet_probe.py")].concat(root.cfg.hub ? [] : ["--no-hub"])
+      .concat(root.cfg.ollamaJournal ? ["--ollama", String(root.cfg.ollamaJournal)] : [])
     stdout: StdioCollector {
       onStreamFinished: root.applyFleet(text)
     }

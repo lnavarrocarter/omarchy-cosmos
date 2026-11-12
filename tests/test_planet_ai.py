@@ -47,6 +47,12 @@ class OfflineTest(unittest.TestCase):
         self.assertEqual(p['colors'][0], pa.RAMPS['blue'][1])
         self.assertEqual(p['colors'][2], pa.RAMPS['green'][2])
 
+    def test_machine_world_is_tech_with_six_colours_and_a_ring(self):
+        spec = pa.clean(pa.offline('planeta tecnológico con naves nodrizas, océanos y fisuras naranjas'))
+        self.assertEqual(spec['style'], 'tech')
+        self.assertEqual(len(spec['colors']), 6)
+        self.assertIs(spec['rings'], True)
+
     def test_anything_gives_a_planet(self):
         for text in ['xyz', '!!!', 'qwerty uiop', 'a' * 300]:
             self.assertIsNotNone(self.read(text), text)

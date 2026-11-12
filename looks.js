@@ -13,12 +13,16 @@ var DEFAULT = {
   shuttle: { hull: "#eef0f7", stripe: "#e2524a" },
   ships: { claude: "", codex: "", copilot: "", local: "" },
   planet: { preset: "ringed" },
-  home: "island"
+  home: "island",
+  station: "classic"
 }
+
+// The station models (stationlife.js has their docks and spacewalk spots).
+var STATIONS = ["classic", "torus", "spire", "citadel"]
 
 // Planet styles the generator knows. "bands" is a gas giant; the others are
 // solid worlds drawn from 2D noise.
-var STYLES = ["bands", "storm", "ice", "lava", "ocean", "rocky", "crystal"]
+var STYLES = ["bands", "storm", "ice", "lava", "ocean", "rocky", "crystal", "tech"]
 
 var PLANETS = {
   ringed: { name: "Ringed giant", style: "bands", rings: true,
@@ -41,7 +45,13 @@ var PLANETS = {
     colors: ["#3fae6a", "#9be37a", "#2a7a4a", "#d6f58a", "#5fc46e"],
     ringColors: ["#e9f5a0", "#a7c96a"], rim: "#c6ff9e" },
   crystal: { name: "Crystal world", style: "crystal", rings: true,
-    colors: ["#2a3a6a", "#58c8ff", "#9b6bff", "#d6f4ff"], ringColors: ["#ff6ad5", "#9b6bff"], rim: "#7df9ff" }
+    colors: ["#2a3a6a", "#58c8ff", "#9b6bff", "#d6f4ff"], ringColors: ["#ff6ad5", "#9b6bff"], rim: "#7df9ff" },
+  // A machine world. colors: plate, seam, ocean, shallows, fissure, city
+  // lights; ringColors: rails, deck, running lights. Comes with its own
+  // orbit (orbital.js): stations, motherships, scrap, an elevator, turrets.
+  forge: { name: "Broken Forge", style: "tech", rings: true,
+    colors: ["#5a6478", "#2e3446", "#1a6f8a", "#36b5c9", "#ff9447", "#7df9ff"],
+    ringColors: ["#9aa3ba", "#5f6784", "#58c8ff"], rim: "#9fd8ff" }
 }
 
 // Where the astronaut, the cat and the dog live. Every home keeps the same
@@ -117,7 +127,8 @@ function normalize(look) {
     shuttle: group(look.shuttle, DEFAULT.shuttle),
     ships: group(look.ships, DEFAULT.ships),
     planet: planet(look.planet),
-    home: HOMES.indexOf(look.home) >= 0 ? look.home : "island"
+    home: HOMES.indexOf(look.home) >= 0 ? look.home : "island",
+    station: STATIONS.indexOf(look.station) >= 0 ? look.station : "classic"
   }
 }
 
@@ -142,5 +153,5 @@ function palettes(look) {
 }
 
 if (typeof module !== "undefined")
-  module.exports = { DEFAULT: DEFAULT, STYLES: STYLES, PLANETS: PLANETS, HOMES: HOMES, HOME_LAYOUT: HOME_LAYOUT, ground: ground, isHex: isHex,
+  module.exports = { DEFAULT: DEFAULT, STYLES: STYLES, STATIONS: STATIONS, PLANETS: PLANETS, HOMES: HOMES, HOME_LAYOUT: HOME_LAYOUT, ground: ground, isHex: isHex,
     normalize: normalize, planet: planet, palettes: palettes, shade: shade }

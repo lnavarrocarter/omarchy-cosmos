@@ -144,5 +144,11 @@
   "studio.fps60": "60 · fluido",
   "studio.customPlanet": "Tu planeta: %1 (elige un estilo arriba para reemplazarlo)",
   "studio.color.auto": "automático",
-  "studio.color.useAuto": "usar automático"
+  "studio.color.useAuto": "usar automático",
+  "studio.section.station": "Estación espacial",
+  "studio.station.classic": "Clásica",
+  "studio.station.torus": "Toro",
+  "studio.station.spire": "Aguja",
+  "studio.station.citadel": "Ciudadela",
+  "studio.planet.forge": "Forja Rota"
 }

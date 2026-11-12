@@ -98,9 +98,13 @@ sobre la escena en vivo, y cada cambio se ve en el momento:
 - **Escena**: activa o desactiva cada animación (episodios, cometas, warp, sol y luna, el cohete de la hora, lanzar
   rocas, clima), cada cuánto hay episodios, cuántas rocas, gatos y satélites flotan, el salvapantallas y los cuadros por
   segundo.
-- **Casa y planeta**: dónde vive el náufrago (una isla, un planetoide con casita y árbol, un castillo flotante o una
-  nave) y el planeta: nueve estilos (con anillos, tormenta, amatista, hielo, lava, océano, desierto, tóxico, cristal),
-  anillos sí o no, o **uno creado desde tu propia descripción**.
+- **Casa, estación y planeta**: dónde vive el náufrago (una isla, un planetoide con casita y árbol, un castillo
+  flotante o una nave); la estación espacial (clásica, un gran **toro** que gira, una **aguja** con alas solares y
+  hangar, o una **ciudadela** hexagonal), todas con lanzaderas que llegan y salen y tripulación en caminata espacial; y
+  el planeta: diez estilos (con anillos, tormenta, amatista, hielo, lava, océano, desierto, tóxico, cristal y **Forja
+  Rota**, un mundo-máquina con un anillo artificial roto, satélites, estaciones, naves nodriza, un ascensor espacial,
+  torretas que derriban chatarra y trozos de corteza que se desprenden en las fisuras y derraman sus mares), anillos sí
+  o no, o **uno creado desde tu propia descripción**.
 - **Personajes**: colores del traje, visor y detalle del astronauta, del gato, del perro y del transbordador. Los
   episodios también los usan.
 - **Flota**: la flota de agentes opcional y los colores de sus naves.
@@ -165,7 +169,7 @@ copia al lugar nuevo.)
 | `eventEpisodes`, `idleSeconds` | episodios que responden a eventos; segundos sin actividad para contar como ausente |
 | `specialDates` | tus fechas, por ejemplo `{"birthday": "05-14"}` (ese día aparece un episodio) |
 | `throwRocks` | las rocas se pueden arrastrar y lanzar |
-| `look` | colores (`astronaut`, `cat`, `dog`, `shuttle`, `ships`), `home` (`island`, `planetoid`, `castle`, `ship`) y `planet` (un `preset`, o `style`, `colors`, `rings`, `ringColors`…) |
+| `look` | colores (`astronaut`, `cat`, `dog`, `shuttle`, `ships`), `home` (`island`, `planetoid`, `castle`, `ship`), `station` (`classic`, `torus`, `spire`, `citadel`) y `planet` (un `preset`, o `style`, `colors`, `rings`, `ringColors`…) |
 | `ai` | planetas desde una descripción: `engine` (`auto`, `ollama`, `claude`, `offline`), `claude` (permitido o no), `ollamaUrl`, `ollamaModel`, `claudeModel` |
 
 Eventos que disparan episodios:
@@ -191,7 +195,17 @@ presupuesto diario de tokens.
 
 **Qué lee.** `fleet_probe.py` lee solo números: los tokens del día y la hora de los prompts en los registros de Claude
 Code (`~/.claude/projects`) y Codex (`~/.codex/sessions`). Nunca lee el texto de prompts ni respuestas. Su caché queda
-en `~/.cache/cosmos/`. Nada sale de tu computador.
+en `~/.cache/cosmos/`. Nada sale de tu computador. Si Codex registra los límites de su plan, su estanque muestra la ventana de límite
+más usada (5 horas o semanal) en vez de `budgets`.
+
+Una nave patrulla mientras su CLI está en uso: un prompt o respuesta en los últimos `interactiveSeconds`, o un turno de
+Codex todavía abierto (incluidas herramientas largas). Las tareas del Hub que terminan antes de una consulta igual
+vuelan una misión corta.
+
+La nave del modelo local (Qwen) cuenta solo tareas del Hub, salvo que configures `ollamaJournal`: entonces también
+cuenta el uso directo de Ollama desde su journal de systemd. Solo se leen las líneas numéricas de tiempos de llama.cpp
+(`prompt eval time`, `eval time`, `processing task`); cualquier otra línea, incluido el texto de prompts que el servidor
+pueda registrar, se descarta. Las tareas del Hub usan el mismo Ollama, así que sus tokens locales no se suman dos veces.
 
 `"hub": true` también lee las tareas del plugin Coordination (`local.coordination`) si está instalado. Al hacer clic en
 una nave se abre ese plugin.
@@ -201,6 +215,7 @@ una nave se abre ese plugin.
 | `fleet`, `hub` | muestra la flota; lee las tareas del Hub |
 | `fleetSeconds` | cada cuánto se consulta |
 | `interactiveSeconds` | qué tan reciente debe ser el uso de la CLI para que una nave patrulle |
+| `ollamaJournal` | apagado (`""`) por defecto; la unidad systemd que ejecuta Ollama, para contar el uso directo del modelo local: una unidad de usuario por nombre (`"workbench-ollama"`) o una del sistema como `"system:ollama"` |
 | `budgets` | presupuesto diario de tokens por agente, por ejemplo `{"claude": 5000000}` |
 | `projectMoons`, `maxMoons` | una luna por proyecto, si el plugin Workbench (`local.workbench`) está instalado |
 
@@ -212,6 +227,8 @@ partículas, disparos, cuerdas y rayos, y cuándo puede ocurrir cada episodio.
 - **`EPISODES.md`** explica el formato y lista el catálogo.
 - `node tools/storyboard.js <id> salida.png [tiempos…]` dibuja momentos de un episodio en un PNG, para revisarlo sin
   mirar el escritorio.
+- `node tools/planet-storyboard.js salida.png [preset] [tiempos…]` y `node tools/station-storyboard.js salida.png
+  [tiempo] [modelos…]` hacen lo mismo con la pantalla del planeta y los modelos de estación.
 
 ## Desarrollo
 

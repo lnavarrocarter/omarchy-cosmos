@@ -82,7 +82,9 @@ Item {
       var h = Looks.HOMES[i], lay = Looks.HOME_LAYOUT[h]
       homes[h] = { home: Sprites.home(h, 4), left: Sprites.decor(lay.left), right: Sprites.decor(lay.right) }
     }
-    thumbs = { planets: planets, homes: homes }
+    var stations = ({ classic: Sprites.wheel(40), torus: Sprites.stationTorus(70), spire: Sprites.stationSpire(),
+      citadel: Sprites.stationCitadel() })
+    thumbs = { planets: planets, homes: homes, stations: stations }
   }
 
   // ---------------------------------------------------------------- planet from a description
@@ -355,6 +357,32 @@ Item {
                   HomeThumb {
                     st: studio; home: homeTile.modelData
                     anchors.horizontalCenter: parent.horizontalCenter
+                  }
+                }
+              }
+            }
+
+            Header { text: strings.t("studio.section.station") }
+            Grid {
+              columns: 2
+              spacing: Style.spacing.md
+              Repeater {
+                model: Looks.STATIONS
+                Tile {
+                  id: stationTile
+                  required property string modelData
+                  st: studio
+                  width: (card.innerW - Style.spacing.md) / 2
+                  height: Style.space(112)
+                  selected: studio.look.station === modelData
+                  label: strings.t("studio.station." + modelData)
+                  onPicked: studio.saveLook("station", modelData)
+                  PixelSprite {
+                    readonly property var art: studio.thumbs ? studio.thumbs.stations[stationTile.modelData] : null
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.top: parent.top; anchors.topMargin: Style.space(8)
+                    sprite: art
+                    px: art ? Math.min(1, Style.space(72) / art.h) : 1
                   }
                 }
               }

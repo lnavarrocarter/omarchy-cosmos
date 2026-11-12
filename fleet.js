@@ -8,7 +8,11 @@
 //   mission  a Hub task runs: fly to the planet and orbit while it works
 //   waiting  a Hub task needs input: hover by the castaway with a beacon
 //   inbound  the task ended: fly home with cargo (done) or smoke (failed)
-//   patrol   the agent's CLI is in use: loop between station and castaway
+//   patrol   the agent's CLI is in use (recent activity or a turn still
+//            open): loop between station and castaway
+// A mission lasts at least MIN_MISSION seconds, and a Hub task that started
+// and finished between two probes still flies a short sortie, so quick
+// tasks (local ones take a few seconds) are never invisible.
 // Every prompt also launches a scout that streaks across all screens.
 
 var AGENTS = ["claude", "codex", "copilot", "local"]
@@ -17,6 +21,7 @@ var LABELS = { claude: "CLAUDE", codex: "CODEX", copilot: "COPILOT", local: "QWE
 var TRANSIT = 14
 var INBOUND = 14
 var HOVER_IN = 10
+var MIN_MISSION = TRANSIT + 4
 var SCOUT_LIFE = 18
 var SCOUT_SPEED = 380
 
@@ -138,9 +143,20 @@ function taskFor(agent, tasks) {
   return null
 }
 
+// A task that finished since the last probe without being seen running.
+function sortieFor(agent, tasks, flown) {
+  for (var i = 0; i < tasks.length; i++)
+    if (tasks[i].engine === agent && tasks[i].recent && tasks[i].id !== flown) return tasks[i]
+  return null
+}
+
 function statusOf(id, tasks) {
   for (var i = 0; i < tasks.length; i++) if (tasks[i].id === id) return tasks[i].status
   return null
+}
+
+function finalResult(status) {
+  return status === "completed" || status === "failed" || status === "cancelled" ? status : null
 }
 
 // Next mode for one ship from the latest probe data.
@@ -151,12 +167,19 @@ function decide(prev, info, tasks, now, t, interactiveWindow) {
     return { mode: mode, taskId: active.id, result: null, workspace: active.workspace || "" }
   }
   if (prev.mode === "mission" || prev.mode === "waiting") {
-    return { mode: "inbound", taskId: prev.taskId, result: statusOf(prev.taskId, tasks) || "completed" }
+    var result = finalResult(statusOf(prev.taskId, tasks)) || prev.result || "completed"
+    // Reach the orbit before turning back, however quick the task was.
+    if (prev.mode === "mission" && t - prev.since < MIN_MISSION)
+      return { mode: "mission", taskId: prev.taskId, result: result }
+    return { mode: "inbound", taskId: prev.taskId, result: result }
   }
   if (prev.mode === "inbound" && t - prev.since < INBOUND)
     return { mode: "inbound", taskId: prev.taskId, result: prev.result }
+  var sortie = sortieFor(prev.agent, tasks, prev.taskId)
+  if (sortie)
+    return { mode: "mission", taskId: sortie.id, result: finalResult(sortie.status), workspace: sortie.workspace || "" }
   var last = info && info.last_activity
-  if (last && now - last < interactiveWindow) return { mode: "patrol", taskId: null, result: null }
+  if ((info && info.busy) || (last && now - last < interactiveWindow)) return { mode: "patrol", taskId: null, result: null }
   return { mode: "docked", taskId: null, result: prev.mode === "inbound" ? prev.result : null }
 }
 
@@ -207,11 +230,17 @@ function scoutPosition(scout, ctx, t) {
   return { x: pad.x - SCOUT_SPEED * e, y: y, opacity: Math.min(1, e * 3, (SCOUT_LIFE - e) / 2) }
 }
 
-function fuel(agent, tokens, budgets) {
+// Fuel left, 0..1. stats is the probe's agent entry (or a token count).
+// An agent that reports its own plan limits (Codex) uses the most used
+// window; otherwise today's tokens drain the daily budget. Qwen is solar.
+function fuel(agent, stats, budgets) {
   if (agent === "local") return 1
+  var s = typeof stats === "number" ? { tokens_today: stats } : (stats || {})
+  if (typeof s.limit_used === "number" && s.limit_used >= 0)
+    return Math.max(0, Math.min(1, 1 - s.limit_used / 100))
   var budget = budgets && budgets[agent]
   if (!(budget > 0)) return 1
-  return Math.max(0, Math.min(1, 1 - tokens / budget))
+  return Math.max(0, Math.min(1, 1 - (s.tokens_today || 0) / budget))
 }
 
 function shortNumber(n) {
@@ -223,5 +252,6 @@ function shortNumber(n) {
 
 if (typeof module !== "undefined") {
   module.exports = { AGENTS: AGENTS, layout: layout, position: position, decide: decide, update: update,
-    scouts: scouts, scoutPosition: scoutPosition, fuel: fuel, shortNumber: shortNumber, TRANSIT: TRANSIT, INBOUND: INBOUND }
+    scouts: scouts, scoutPosition: scoutPosition, fuel: fuel, shortNumber: shortNumber, TRANSIT: TRANSIT, INBOUND: INBOUND,
+    MIN_MISSION: MIN_MISSION }
 }

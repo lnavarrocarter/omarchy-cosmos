@@ -370,13 +370,136 @@ function fbm(x, y, seed) {
   return (noise2(x, y, seed) * 0.55 + noise2(x * 2.1, y * 2.1, seed + 1) * 0.3 + noise2(x * 4.3, y * 4.3, seed + 2) * 0.15)
 }
 
+// The ring plane every planet uses: tilt squashes it, rot turns it. orbital.js
+// reads the same numbers so things orbiting in the ring line up with it.
+var TECH_RING = { tilt: 0.3, rot: -0.2, inner: 1.36, outer: 1.62, broken: [1.95, 2.55], segment: 0.26 }
+
+// Angle around the ring (0..2pi, front half is 0..pi) for a point in the
+// untilted ring plane.
+function ringAngle(rx, ryFlat) {
+  var a = Math.atan2(ryFlat, rx)
+  return a < 0 ? a + Math.PI * 2 : a
+}
+
+// The artificial ring: joints between segments, and a broken stretch whose
+// jagged ends are torn open.
+function techRingGap(rx, ryFlat, e) {
+  var a = ringAngle(rx, ryFlat)
+  var b = TECH_RING.broken
+  var jag = (hash(Math.floor(e * 40)) - 0.5) * 0.12
+  if (a > b[0] + jag && a < b[1] - jag) return true
+  var seg = a / TECH_RING.segment
+  return seg - Math.floor(seg) < 0.05
+}
+
+// Rails at the edges, a deck in the middle, some segments dark, and a
+// running light in the middle of the lit ones.
+function techRingColor(rx, ryFlat, e, ringCols, seed) {
+  var a = ringAngle(rx, ryFlat)
+  var segIndex = Math.floor(a / TECH_RING.segment)
+  var f = (e - TECH_RING.inner) / (TECH_RING.outer - TECH_RING.inner)
+  var rail = f < 0.18 || f > 0.82
+  var base = rail ? ringCols[0] : (ringCols[1] || ringCols[0])
+  if (hash(segIndex * 13 + seed) > 0.72) base = mix(base, [20, 16, 30], 0.55)
+  var mid = a / TECH_RING.segment - segIndex
+  if (!rail && Math.abs(f - 0.5) < 0.12 && Math.abs(mid - 0.5) < 0.06) base = ringCols[2] || [88, 200, 255]
+  return base
+}
+
+// A mothership: a long dark hull, seen side-on, with a few rows of lit
+// windows and a glowing engine block at the stern. Faces left.
+function mothership(seed, light) {
+  var w = 54, h = 15
+  var s = blank(w, h)
+  var hull = [38, 42, 60], edge = [70, 78, 104], win = hex(light || "#ffd65a"), eng = hex("#58c8ff")
+  for (var x = 0; x < w; x++) {
+    var u = x / (w - 1)
+    // Wedge: a pointed bow on the left, a tall stern.
+    var half = 2 + Math.round(5 * Math.min(1, u * 1.6))
+    var top = 7 - half, bot = 7 + Math.min(half, 3 + Math.round(u * 3))
+    if (u > 0.55 && u < 0.7) top = Math.max(0, top - 2) // bridge tower
+    for (var y = Math.max(0, top); y <= Math.min(h - 1, bot); y++) {
+      var c = (y === top || y === bot) ? edge : hull
+      if (y > top + 1 && y < bot - 1 && x % 3 === 0 && (y % 3 === 1) && hash(seed * 7 + x * 3 + y) > 0.45) c = win
+      if (x > w - 4) c = eng
+      put(s, x, y, c)
+    }
+  }
+  return s
+}
+
+// A small orbital station: "wheel" (a ring with a hub) or "cross" (four
+// arms with solar panels).
+function orbStation(kind) {
+  if (kind === "cross") return fromRows([
+    "AAa...K...aAA",
+    "AAa..KWK..aAA",
+    "AAa..KGK..aAA",
+    "..KKKKVKKKK..",
+    "..KGGWVWGGK..",
+    "..KKKKVKKKK..",
+    "AAa..KGK..aAA",
+    "AAa..KWK..aAA",
+    "AAa...K...aAA"
+  ])
+  return fromRows([
+    "....KKKKK....",
+    "..KKnnnnnKK..",
+    ".KnK..K..KnK.",
+    ".Kn...K...nK.",
+    "KnK..KVK..KnK",
+    "Kn.KKVYVKK.nK",
+    "KnK..KVK..KnK",
+    ".Kn...K...nK.",
+    ".KnK..K..KnK.",
+    "..KKnnnnnKK..",
+    "....KKKKK...."
+  ])
+}
+
+// Scrap from the broken ring: a bent panel, a strut, a hull plate.
+function junk(seed) {
+  var kinds = [
+    ["nn..", "nGn.", ".nnG", "..Kn"],
+    ["GnnnK", ".KGGn", "..Kn."],
+    ["AaAa", "aAaA", "KKnK"],
+    ["TT..", "TsT.", ".TTn", "..n."],
+    ["nGnGn", ".KnK."]
+  ]
+  return fromRows(kinds[Math.abs(seed) % kinds.length])
+}
+
+// A torn-off piece of crust still holding a pool of sea: water on top,
+// plate and a glowing broken edge underneath.
+function crustChunk(seed, sea, plate, fissure) {
+  var w = 13 + (Math.abs(seed) % 3) * 3, h = 8
+  var s = blank(w, h)
+  var water = hex(sea || "#1a8a9a"), foam = mix(water, [255, 255, 255], 0.45)
+  var rock = hex(plate || "#5a6478"), dark = mix(rock, [20, 16, 30], 0.5), hot = hex(fissure || "#ff9447")
+  for (var x = 0; x < w; x++) {
+    var bottom = 3 + Math.round(4 * Math.sin((x / (w - 1)) * Math.PI)) - (hash(seed * 5 + x) > 0.7 ? 1 : 0)
+    for (var y = 0; y <= bottom; y++) {
+      var c = y === 0 ? (x === 0 || x === w - 1 ? rock : foam) : y === 1 ? (x === 0 || x === w - 1 ? rock : water)
+        : y === bottom ? hot : (y === bottom - 1 ? dark : rock)
+      put(s, x, y, c)
+    }
+  }
+  return s
+}
+
+// The space elevator's climber and a ring turret.
+function climber() { return fromRows(["KYK", "YVY", "YVY", "KYK"]) }
+function turret() { return fromRows([".R.", "KnK", "nGn"]) }
+
 // spec (looks.js planet()): style, colors, rings, ringColors, spot, rim,
 // seed. Without one, the classic ringed giant.
 function planet(R, bandShift, spec) {
   spec = spec || {}
   var style = spec.style || "bands"
   var hasRings = spec.rings === undefined ? true : !!spec.rings
-  var ringOuter = hasRings ? 1.85 : 1.0, ringInner = 1.28, tilt = 0.3, rot = -0.2
+  var techRing = style === "tech"
+  var ringOuter = hasRings ? (techRing ? 1.62 : 1.85) : 1.0, ringInner = techRing ? 1.36 : 1.28
+  var tilt = TECH_RING.tilt, rot = TECH_RING.rot
   var w = Math.ceil(R * 2 * Math.max(1, ringOuter)) + 6
   var h = Math.ceil(R * 2) + 10
   var s = blank(w, h)
@@ -395,7 +518,7 @@ function planet(R, bandShift, spec) {
       var rx = dx * cr - dy * sr, ry = dx * sr + dy * cr
       var er = Math.sqrt(rx * rx + (ry / tilt) * (ry / tilt))
       var inRing = hasRings && er > R * ringInner && er < R * ringOuter
-      var gap = Math.abs(er - R * 1.55) < R * 0.035
+      var gap = techRing ? techRingGap(rx, ry / tilt, er / R) : Math.abs(er - R * 1.55) < R * 0.035
       var front = ry > 0
       var l = shadeSphere(dx, dy, R)
       var sphere = l >= 0
@@ -436,6 +559,28 @@ function planet(R, bandShift, spec) {
             var dd = Math.hypot(lon - clon, (lat - clat) * 1.4)
             if (dd < cr2) col = dd > cr2 * 0.7 ? cols[cols.length - 1] : cols[Math.min(2, cols.length - 1)]
           }
+        } else if (style === "tech") {
+          // A machine world: armour plates over drowned seas, glowing
+          // fissures, and city lights on the night side.
+          // colors: plate, seam, ocean, shallows, fissure, lights.
+          var plateU = Math.floor(lon * 7 + 20), plateV = Math.floor(lat * 9 + 20)
+          var ph = hash(plateU * 31 + plateV * 17 + seed)
+          col = ph > 0.5 ? cols[0] : mix(cols[0], cols[1], 0.35)
+          var fu = lon * 7 + 20 - plateU, fv = lat * 9 + 20 - plateV
+          var seam = fu < 0.08 || fv < 0.1
+          if (seam) col = cols[1]
+          var sea = fbm(nx * 1.25, ny * 1.25, seed)
+          var isSea = sea < 0.43
+          if (isSea) col = sea < 0.37 ? cols[2] : (cols[3] || cols[2])
+          // A few long fissures: thin where the noise crosses 0.5, only
+          // where a second, slower field says the crust is breaking.
+          var crack = Math.abs(fbm(nx * 1.3 + 5, ny * 1.3, seed + 9) - 0.5)
+          var breaking = fbm(nx * 0.8 + 2, ny * 0.8, seed + 21) > 0.5
+          if (breaking && crack < 0.016) { col = cols[4] || cols[1]; glow = crack < 0.007 ? 1 : 0.7 }
+          else if (!isSea && l < 0.42 && (seam || hash(plateU * 7 + plateV * 3 + seed) > 0.8)
+                   && hash(x * 7 + y * 13 + seed) > (seam ? 0.35 : 0.7)) {
+            col = cols[5] || cols[0]; glow = 0.95
+          }
         } else {
           // crystal: faceted, with bright sparkles.
           var f = Math.floor(fbm(nx * 2.2, ny * 2.2, seed) * 6)
@@ -447,7 +592,8 @@ function planet(R, bandShift, spec) {
         continue
       }
       if (inRing && !gap) {
-        var rc = ringCols[Math.floor(er / (R * 0.09)) % ringCols.length]
+        var rc = techRing ? techRingColor(rx, ry / tilt, er / R, ringCols, seed)
+          : ringCols[Math.floor(er / (R * 0.09)) % ringCols.length]
         // The planet's shadow falls on the far ring behind it.
         var shadow = !front && dx > 0 && Math.abs(dy) < R * 0.9 ? 0.45 : 1
         put(s, x, y, mix([20, 16, 30], rc, dither(0.85 * shadow, x, y, 4)), 230)
@@ -516,6 +662,164 @@ function wheel(R) {
       }
     }
   }
+  return s
+}
+
+// ------------------------------------------------------ station models
+// Hull tones shared by the bigger stations: light from the upper left.
+var HULL = { hi: [170, 178, 204], mid: [107, 114, 144], lo: [62, 66, 92], edge: [37, 39, 58] }
+function hullAt(dx, dy, r) {
+  var k = (-dx - dy) / (r * 1.41)
+  return k > 0.35 ? HULL.hi : k > -0.25 ? HULL.mid : HULL.lo
+}
+
+// A big habitat torus seen face-on: hull rails, a band of lit windows
+// (green farms and warm cabins), six spokes and a hub. It turns as a whole.
+function stationTorus(R) {
+  var size = R * 2 + 3
+  var s = blank(size, size)
+  var c = size / 2
+  var farm = [93, 255, 157], cabin = [255, 224, 138], glass = [24, 36, 70], lamp = hex(PALETTE.Y)
+  for (var y = 0; y < size; y++) {
+    for (var x = 0; x < size; x++) {
+      var dx = x + 0.5 - c, dy = y + 0.5 - c
+      var d = Math.sqrt(dx * dx + dy * dy)
+      var ang = Math.atan2(dy, dx)
+      var seg = Math.floor(((ang + Math.PI) / (2 * Math.PI)) * 36)
+      var segF = ((ang + Math.PI) / (2 * Math.PI)) * 36 - seg
+      if (d <= R && d > R - 11) {
+        var band = R - d
+        if (band < 2.2 || band > 8.8) put(s, x, y, band < 1 || band > 10 ? HULL.edge : hullAt(dx, dy, R))
+        else if (segF < 0.12) put(s, x, y, HULL.lo)
+        else {
+          var lit = hash(seg * 7) > 0.25
+          var col = !lit ? glass : (seg % 3 === 0 ? farm : cabin)
+          if (lit && band > 4 && band < 7 && hash(seg * 13 + Math.floor(segF * 4)) > 0.6) col = mix(col, [255, 255, 255], 0.4)
+          put(s, x, y, mix(glass, col, lit ? 0.85 : 1))
+        }
+      } else if (d <= R - 11 && d > 11) {
+        for (var k = 0; k < 6; k++) {
+          var a = k * Math.PI / 3 + 0.26
+          var along = dx * Math.cos(a) + dy * Math.sin(a)
+          var across = Math.abs(dx * Math.sin(a) - dy * Math.cos(a))
+          if (along > 0 && across < 1.8) put(s, x, y, across < 0.8 ? HULL.mid : HULL.lo)
+        }
+      } else if (d <= 11) {
+        put(s, x, y, d < 3 ? lamp : d < 5 ? HULL.edge : d > 10 ? HULL.edge : hullAt(dx, dy, 11))
+      }
+    }
+  }
+  return s
+}
+
+// The torus' fixed docking spindle: a long truss with a port at each end.
+function stationSpindle(len) {
+  var h = 9
+  var s = blank(len, h)
+  for (var x = 0; x < len; x++) {
+    var port = x < 7 || x >= len - 7
+    for (var y = 0; y < h; y++) {
+      if (port) {
+        var edge = y === 0 || y === h - 1 || x === 0 || x === len - 1
+        put(s, x, y, edge ? HULL.edge : (y === 4 ? [255, 214, 90] : y < 4 ? HULL.hi : HULL.mid))
+      } else if (y >= 3 && y <= 5) {
+        put(s, x, y, y === 4 ? HULL.lo : (x % 4 === 0 ? HULL.edge : HULL.mid))
+      }
+    }
+  }
+  return s
+}
+
+// A tall spire: an antenna, three decks with windows, two pairs of solar
+// wings, and a hangar bay at the foot with its doors open.
+function stationSpire() {
+  var w = 76, h = 120
+  var s = blank(w, h)
+  var cx = 38, win = [255, 224, 138], dark = [12, 14, 28], pane = hex(PALETTE.A), paneD = hex(PALETTE.a)
+  function deck(y0, half, hh) {
+    for (var y = y0; y < y0 + hh; y++) for (var x = cx - half; x < cx + half; x++) {
+      var edge = y === y0 || y === y0 + hh - 1 || x === cx - half || x === cx + half - 1
+      var c = edge ? HULL.edge : (y - y0 < hh / 2 ? HULL.hi : HULL.mid)
+      if (!edge && y === y0 + Math.floor(hh / 2) && (x - cx + half) % 3 !== 0) c = hash(x * 3 + y) > 0.3 ? win : dark
+      put(s, x, y, c)
+    }
+  }
+  function wing(y0, dir) {
+    for (var x = 0; x < 30; x++) {
+      var px = dir < 0 ? cx - 6 - x : cx + 5 + x
+      put(s, px, y0 + 4, HULL.lo)
+      if (x > 5) for (var y = y0; y < y0 + 9; y++) {
+        if (y === y0 + 4) continue
+        put(s, px, y, (x % 5 === 0 || y === y0 || y === y0 + 8) ? paneD : pane)
+      }
+    }
+  }
+  wing(32, -1); wing(32, 1); wing(64, -1); wing(64, 1)
+  for (var y = 8; y < 104; y++) for (var x = cx - 5; x < cx + 5; x++)
+    put(s, x, y, x === cx - 5 || x === cx + 4 ? HULL.edge : x < cx - 1 ? HULL.hi : HULL.mid)
+  for (y = 0; y < 9; y++) put(s, cx - 1, y, HULL.mid)
+  put(s, cx - 1, 0, hex(PALETTE.R)); put(s, cx - 2, 0, hex(PALETTE.R))
+  deck(18, 20, 9)
+  deck(46, 26, 11)
+  deck(78, 22, 9)
+  // Hangar: a wide block, doors open on a lit bay.
+  for (y = 96; y < 118; y++) for (x = cx - 16; x < cx + 16; x++) {
+    var edge = y === 96 || y === 117 || x === cx - 16 || x === cx + 15
+    var bay = y > 101 && y < 114 && x > cx - 12 && x < cx + 11
+    put(s, x, y, edge ? HULL.edge : bay ? (y === 113 ? win : dark) : (y < 104 ? HULL.hi : HULL.mid))
+  }
+  return s
+}
+
+// A citadel: a hexagonal core with a lit window ring, six pods on struts,
+// a dashed docking ring with clamps, and a dish antenna.
+function stationCitadel() {
+  var size = 104
+  var s = blank(size, size)
+  var c = size / 2
+  var win = [255, 224, 138], dark = [12, 14, 28]
+  var podCols = [[255, 148, 71], [88, 200, 255], [155, 107, 255], [93, 255, 157], [255, 106, 213], [255, 214, 90]]
+  for (var y = 0; y < size; y++) {
+    for (var x = 0; x < size; x++) {
+      var dx = x + 0.5 - c, dy = y + 0.5 - c
+      var d = Math.sqrt(dx * dx + dy * dy)
+      var ang = Math.atan2(dy, dx)
+      // Docking ring, dashed, with clamps every 45 degrees.
+      if (d > 45 && d < 48) {
+        var seg = ((ang + Math.PI) / (Math.PI / 4)) % 1
+        if (seg < 0.12 || seg > 0.88) put(s, x, y, HULL.hi)
+        else if (Math.floor((ang + Math.PI) * 12) % 2 === 0) put(s, x, y, HULL.lo)
+        continue
+      }
+      // Struts to the pods.
+      for (var k = 0; k < 6; k++) {
+        var a = k * Math.PI / 3
+        var along = dx * Math.cos(a) + dy * Math.sin(a)
+        var across = Math.abs(dx * Math.sin(a) - dy * Math.cos(a))
+        if (along > 14 && along < 26 && across < 1.5) put(s, x, y, HULL.lo)
+        // Pods.
+        var px = Math.cos(a) * 31, py = Math.sin(a) * 31
+        var pd = Math.hypot(dx - px, dy - py)
+        if (pd < 8) put(s, x, y, pd > 7 ? HULL.edge : pd < 2.5 ? win : pd < 4 ? podCols[k] : hullAt(dx - px, dy - py, 8))
+      }
+      // Hex core.
+      var q = Math.max(Math.abs(dx) * 0.866 + Math.abs(dy) * 0.5, Math.abs(dy))
+      if (q < 17) {
+        var col = q > 16 ? HULL.edge : hullAt(dx, dy, 17)
+        if (q > 10 && q < 12.5) col = Math.floor((ang + Math.PI) * 4) % 3 === 0 ? dark : win
+        if (q < 4) col = hex(PALETTE.Y)
+        put(s, x, y, col)
+      }
+    }
+  }
+  // Dish antenna on the upper right, on a short mast.
+  var ax = c + 22, ay = c - 30
+  for (var i = 0; i < 6; i++) put(s, Math.round(c + 10 + i * 2), Math.round(c - 10 - i * 3.3), HULL.lo)
+  for (y = -7; y <= 7; y++) for (x = -7; x <= 7; x++) {
+    var r2 = Math.hypot(x, y)
+    if (r2 < 7 && x - y > 3) put(s, ax + x, ay + y, r2 > 6 ? HULL.edge : HULL.hi)
+  }
+  put(s, ax - 2, ay + 2, hex(PALETTE.R))
   return s
 }
 
@@ -990,5 +1294,8 @@ if (typeof module !== "undefined") {
     ship: ship, crate: crate, sun: sun, moonPhase: moonPhase, rocket: rocket,
     fromRows: fromRows, fromArt: fromArt, cow: cow, grassRock: grassRock, ufo: ufo, dog: dog, dogShip: dogShip, pirate: pirate, whale: whale,
     home: home, decor: decor, planetoid: planetoid, shipHull: shipHull, castleRock: castleRock,
+    TECH_RING: TECH_RING, mothership: mothership, orbStation: orbStation, junk: junk, crustChunk: crustChunk,
+    climber: climber, turret: turret, hex: hex, stationTorus: stationTorus, stationSpindle: stationSpindle,
+    stationSpire: stationSpire, stationCitadel: stationCitadel,
     dogRun: dogRun, dogWag: dogWag, catWalk: catWalk, catBlink: catBlink, catSwish: catSwish, astronautWalk: astronautWalk }
 }

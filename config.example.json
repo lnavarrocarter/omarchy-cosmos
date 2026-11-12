@@ -24,6 +24,7 @@
   "hub": false,
   "fleetSeconds": 10,
   "interactiveSeconds": 120,
+  "ollamaJournal": "",
   "budgets": {
     "claude": 5000000,
     "codex": 3000000,

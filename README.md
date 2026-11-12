@@ -95,9 +95,13 @@ scene, and every change shows as you make it:
 
 - **Scene**: turn each animation on or off (episodes, comets, warp, sun and moon, the hourly rocket, throwing rocks,
   weather), how often episodes play, how many rocks, cats and satellites drift by, the screensaver and the frame rate.
-- **Home & planet**: where the castaway lives (an island, a tiny planet with a house and a tree, a floating castle or
-  a starship) and the planet: nine presets (ringed, storm, amethyst, ice, lava, ocean, desert, toxic, crystal), rings on
-  or off, or **one made from your own description**.
+- **Home, station & planet**: where the castaway lives (an island, a tiny planet with a house and a tree, a floating
+  castle or a starship); the space station (classic, a big turning **torus**, a **spire** with solar wings and a hangar,
+  or a hexagonal **citadel**), each with shuttles that come and go and crew on spacewalks; and the planet: ten presets
+  (ringed, storm, amethyst, ice, lava, ocean, desert, toxic, crystal, and **Broken Forge**, a machine world with an
+  artificial broken ring, satellites, stations, motherships, a space elevator, ring turrets that shoot scrap down, and
+  chunks of crust that tear off at the fissures and spill their seas), rings on or off, or **one made from your own
+  description**.
 - **Characters**: colours for the astronaut's suit, visor and accent, the cat, the dog and the shuttle. Episodes use
   them too.
 - **Fleet**: the optional agent fleet and its ship colours.
@@ -161,7 +165,7 @@ updates and reinstalls never touch it and edits apply on save. `config.example.j
 | `eventEpisodes`, `idleSeconds` | episodes that answer events; seconds idle before you count as away |
 | `specialDates` | your own dates, e.g. `{"birthday": "05-14"}` (an episode plays that day) |
 | `throwRocks` | rocks can be dragged and thrown |
-| `look` | colours (`astronaut`, `cat`, `dog`, `shuttle`, `ships`), `home` (`island`, `planetoid`, `castle`, `ship`) and `planet` (a `preset`, or `style`, `colors`, `rings`, `ringColors`…) |
+| `look` | colours (`astronaut`, `cat`, `dog`, `shuttle`, `ships`), `home` (`island`, `planetoid`, `castle`, `ship`), `station` (`classic`, `torus`, `spire`, `citadel`) and `planet` (a `preset`, or `style`, `colors`, `rings`, `ringColors`…) |
 | `ai` | planets from a description: `engine` (`auto`, `ollama`, `claude`, `offline`), `claude` (allowed or not), `ollamaUrl`, `ollamaModel`, `claudeModel` |
 
 Events that trigger episodes:
@@ -186,7 +190,16 @@ and a local model). Each one gets a hangar, a ship and a fuel tank sized by `bud
 
 **What it reads.** `fleet_probe.py` reads usage numbers only: today's token counts and prompt times from the Claude Code
 (`~/.claude/projects`) and Codex (`~/.codex/sessions`) session logs. Prompt and answer text is never read out. Its cache
-lives in `~/.cache/cosmos/`. Nothing leaves your computer.
+lives in `~/.cache/cosmos/`. Nothing leaves your computer. When Codex logs its plan limits, its fuel tank shows the most
+used limit window (5-hour or weekly) instead of `budgets`.
+
+A ship patrols while its CLI is in use: a prompt or answer in the last `interactiveSeconds`, or a Codex turn still open
+(long tool calls included). Hub tasks that finish faster than one probe still fly a short mission.
+
+The local model ship (Qwen) counts Hub tasks only, unless you set `ollamaJournal`: then it also counts direct use of
+Ollama from its systemd journal. Only the numeric llama.cpp timing lines (`prompt eval time`, `eval time`, `processing
+task`) are matched; every other line, including any prompt text the server logs, is discarded. Hub tasks run on the
+same Ollama, so their local tokens are not added twice.
 
 `"hub": true` also reads tasks from the Coordination plugin (`local.coordination`) when it is installed. Clicking a ship
 opens it.
@@ -196,6 +209,7 @@ opens it.
 | `fleet`, `hub` | show the fleet; read Hub tasks |
 | `fleetSeconds` | how often to probe |
 | `interactiveSeconds` | how recent CLI use must be for a ship to patrol |
+| `ollamaJournal` | off (`""`) by default; the systemd unit that runs Ollama, to count direct local model use: a user unit by name (`"workbench-ollama"`), a system unit as `"system:ollama"` |
 | `budgets` | daily token budget per agent, e.g. `{"claude": 5000000}` |
 | `projectMoons`, `maxMoons` | one moon per project, if the Workbench plugin (`local.workbench`) is installed |
 
@@ -207,6 +221,8 @@ ropes and beams, and when the episode may play.
 - **`EPISODES.md`** documents the format (in Spanish) and the catalog.
 - `node tools/storyboard.js <id> out.png [times…]` draws moments of an episode to a PNG, so you can check it without
   watching the desktop.
+- `node tools/planet-storyboard.js out.png [preset] [times…]` and `node tools/station-storyboard.js out.png [time]
+  [models…]` do the same for the planet screen and the station models.
 
 ## Development
 

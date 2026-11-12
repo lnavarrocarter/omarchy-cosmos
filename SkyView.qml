@@ -256,6 +256,8 @@ Item {
           }
         }
 
+        OrbitLayer { sim: view.sim; front: false; pcx: parent.pcx; pcy: parent.pcy }
+
         PixelSprite {
           id: planetSprite
           px: 3
@@ -263,6 +265,8 @@ Item {
           x: parent.pcx - width / 2
           y: parent.pcy - height / 2
         }
+
+        OrbitLayer { sim: view.sim; front: true; pcx: parent.pcx; pcy: parent.pcy }
 
         // Lightning in the cloud bands; more often the busier the CPU.
         Repeater {

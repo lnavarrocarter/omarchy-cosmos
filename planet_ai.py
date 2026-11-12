@@ -26,7 +26,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-STYLES = ['bands', 'storm', 'ice', 'lava', 'ocean', 'rocky', 'crystal']
+STYLES = ['bands', 'storm', 'ice', 'lava', 'ocean', 'rocky', 'crystal', 'tech']
 HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
 KEY_FILE = Path.home() / '.config' / 'cosmos' / 'anthropic-key'
 DEFAULT_CLAUDE_MODEL = 'claude-opus-5-5'
@@ -52,9 +52,11 @@ INSTRUCTIONS = (
     'You design planets for a pixel-art space wallpaper. From the user\'s description, choose: '
     'style (bands = gas giant with stripes, storm = gas giant with a big storm spot, ice = frozen with cracks '
     'and polar caps, lava = dark rock with glowing cracks, ocean = water with continents and clouds, '
-    'rocky = desert or barren with craters, crystal = faceted gem world), 3-6 surface colours ordered '
-    'dark to light (for ocean: deep water, shallow water, land, beach, clouds; for lava: rock, dark rock, '
-    'glow, bright glow), rings or not, 2-3 ring colours, a storm spot colour, a rim glow colour and a short '
+    'rocky = desert or barren with craters, crystal = faceted gem world, tech = machine world of metal '
+    'plates, seas, glowing fissures and city lights, with an artificial ring, stations and motherships), '
+    '3-6 surface colours ordered dark to light (for ocean: deep water, shallow water, land, beach, clouds; '
+    'for lava: rock, dark rock, glow, bright glow; for tech exactly 6: plate, seam, ocean, shallows, '
+    'fissure, city lights), rings or not, 2-3 ring colours, a storm spot colour, a rim glow colour and a short '
     'name. Colours are #rrggbb. Keep the palette harmonious and readable on a dark night-blue background.'
 )
 
@@ -124,6 +126,10 @@ RAMPS = {
     'gray': ['#2d2f45', '#4b5170', '#6b7290', '#a3a9c2', '#d6dae8'],
 }
 STYLE_WORDS = [
+    ('tech', ['tecnológico', 'tecnologico', 'tecnológica', 'tecnologica', 'tech', 'technological', 'máquina', 'maquina',
+              'machine', 'mecánico', 'mecanico', 'metálico', 'metalico', 'metal', 'cyberpunk', 'ciudad', 'city',
+              'ecumenópolis', 'ecumenopolis', 'robot', 'industrial', 'fábrica', 'fabrica', 'factory', 'nave', 'naves',
+              'nodriza', 'nodrizas', 'satélites', 'satelites', 'estaciones']),
     ('lava', ['lava', 'volcán', 'volcan', 'volcanic', 'volcánico', 'volcanico', 'magma', 'fuego', 'fire', 'infierno', 'hell', 'molten', 'fundido']),
     ('ice', ['hielo', 'helado', 'helada', 'ice', 'icy', 'frozen', 'congelado', 'congelada', 'glaciar', 'glacier', 'nieve', 'snow', 'frío', 'frio', 'cold']),
     ('ocean', ['océano', 'oceano', 'ocean', 'mar', 'sea', 'agua', 'water', 'tierra', 'earth', 'continentes', 'continents', 'islas', 'islands', 'habitable', 'vida', 'life', 'bosque', 'forest']),
@@ -136,7 +142,7 @@ NO_RINGS = re.compile(r'\b(sin anillos?|no rings?|without rings?|ringless)\b')
 RINGS = re.compile(r'\b(anillos?|rings?|ringed|aros?)\b')
 STYLE_DEFAULT = {'lava': ['black', 'orange', 'yellow'], 'ice': ['cyan', 'white'], 'ocean': ['blue', 'green'],
                  'crystal': ['purple', 'cyan'], 'storm': ['orange', 'brown'], 'rocky': ['red', 'orange'],
-                 'bands': ['orange', 'yellow']}
+                 'bands': ['orange', 'yellow'], 'tech': ['gray', 'cyan', 'orange']}
 
 
 def words(text):
@@ -192,6 +198,14 @@ def offline(text):
         water = RAMPS[waters[0] if waters else 'blue']
         land = RAMPS[lands[0] if lands else 'green']
         cols = [water[1], water[2], land[2], '#e9cf93', '#ffffff']
+    elif style == 'tech':
+        # Plate and seam from the first metal-ish colour, seas from a water
+        # colour, the fissures from a hot one, city lights from a bright one.
+        metal = next((c for c in surface if c in ('gray', 'black', 'white', 'blue', 'purple', 'brown')), 'gray')
+        water = next((c for c in surface if c in ('cyan', 'blue', 'green', 'purple')), 'cyan')
+        hot = next((c for c in surface if c in ('orange', 'red', 'yellow', 'pink')), 'orange')
+        light = next((c for c in surface if c in ('cyan', 'yellow', 'green', 'pink', 'white') and c != water), 'cyan')
+        cols = [RAMPS[metal][2], RAMPS[metal][1], RAMPS[water][1], RAMPS[water][3], RAMPS[hot][3], RAMPS[light][4]]
     elif style in ('ice', 'rocky', 'crystal'):
         # Solid worlds read their colours dark to light.
         ramp = RAMPS[surface[0]]
@@ -206,11 +220,15 @@ def offline(text):
     rings = bool(RINGS.search(t)) and not NO_RINGS.search(t)
     if NO_RINGS.search(t):
         rings = False
-    elif style in ('bands', 'ice', 'crystal') and not RINGS.search(t):
-        rings = style == 'bands'
+    elif style in ('bands', 'ice', 'crystal', 'tech') and not RINGS.search(t):
+        rings = style in ('bands', 'tech')
     ring_ramp = RAMPS[ring_color] if ring_color else RAMPS[surface[-1]]
     spec = {'style': style, 'colors': cols, 'rings': rings, 'ringColors': [ring_ramp[3], ring_ramp[2], ring_ramp[4]],
             'spot': RAMPS['red'][2], 'rim': cols[2] if style == 'lava' else RAMPS[surface[0]][3]}
+    if style == 'tech':
+        # An artificial ring: metal rails and deck, running lights like the cities.
+        spec['ringColors'] = [cols[0], cols[1], cols[5]]
+        spec['rim'] = cols[3]
     words_kept = [w for w in re.findall(r"[\wáéíóúñü]+", text) if len(w) > 3][:3]
     spec['name'] = ' '.join(words_kept).title()[:40] or 'Custom world'
     return spec

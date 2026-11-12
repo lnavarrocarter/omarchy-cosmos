@@ -40,7 +40,7 @@ BarWidget {
   function info(agent) {
     return fleet && fleet.agents && fleet.agents[agent] ? fleet.agents[agent] : { tokens_today: 0, prompts_today: 0 }
   }
-  function fuel(agent) { return Fleet.fuel(agent, info(agent).tokens_today || 0, budgets) }
+  function fuel(agent) { return Fleet.fuel(agent, info(agent), budgets) }
   function countMode(mode) {
     var n = 0
     for (var i = 0; i < Fleet.AGENTS.length; i++) {

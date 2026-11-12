@@ -108,3 +108,41 @@ test("a mission orbits the moon of its workspace, following it", () => {
   p = F.position(s2.claude, c, F.TRANSIT + 20, 0)
   assert.ok(Math.hypot(wd(p.x - 960), (p.y - 560) / 0.6) < 340)
 })
+
+test("a quick task still reaches orbit before heading home", () => {
+  let ships = F.update({}, fleet([{ id: "q", status: "running", engine: "local" }]), ctx, 0, 120)
+  ships = F.update(ships, fleet([{ id: "q", status: "completed", engine: "local" }]), ctx, 5, 120)
+  assert.strictEqual(ships.local.mode, "mission")
+  ships = F.update(ships, fleet([{ id: "q", status: "completed", engine: "local" }]), ctx, F.MIN_MISSION + 1, 120)
+  assert.strictEqual(ships.local.mode, "inbound")
+  assert.strictEqual(ships.local.result, "completed")
+})
+
+test("a task that finished between probes flies a sortie once", () => {
+  const done = { id: "s", status: "failed", engine: "codex", recent: true, workspace: "hub" }
+  let ships = F.update({}, fleet([done]), ctx, 0, 120)
+  assert.strictEqual(ships.codex.mode, "mission")
+  assert.strictEqual(ships.codex.workspace, "hub")
+  ships = F.update(ships, fleet([Object.assign({}, done, { recent: false })]), ctx, 10, 120)
+  assert.strictEqual(ships.codex.mode, "mission")
+  ships = F.update(ships, fleet([Object.assign({}, done, { recent: false })]), ctx, 20, 120)
+  assert.strictEqual(ships.codex.mode, "inbound")
+  assert.ok(F.position(ships.codex, ctx, 22, 1).smoke)
+  ships = F.update(ships, fleet([]), ctx, 20 + F.INBOUND + 1, 120)
+  assert.strictEqual(ships.codex.mode, "docked")
+  // Finished tasks without the recent flag are history: no sortie.
+  const s2 = F.update({}, fleet([{ id: "old", status: "completed", engine: "claude" }]), ctx, 0, 120)
+  assert.strictEqual(s2.claude.mode, "docked")
+})
+
+test("an open CLI turn keeps the ship on patrol through long tool calls", () => {
+  const ships = F.update({}, fleet([], { codex: { last_activity: 100, busy: true }, local: { busy: false } }, 1000), ctx, 0, 120)
+  assert.strictEqual(ships.codex.mode, "patrol")
+  assert.strictEqual(ships.local.mode, "docked")
+})
+
+test("plan limits size the fuel when the agent reports them", () => {
+  assert.strictEqual(F.fuel("codex", { tokens_today: 2.5e6, limit_used: 51 }, { codex: 3e6 }), 0.49)
+  assert.ok(Math.abs(F.fuel("codex", { tokens_today: 1.5e6 }, { codex: 3e6 }) - 0.5) < 1e-9)
+  assert.strictEqual(F.fuel("local", { tokens_today: 5000, limit_used: 99 }, {}), 1)
+})
