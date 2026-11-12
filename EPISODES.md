@@ -7,7 +7,7 @@ dibuja. Para agregar uno no hay que tocar QML: se escribe el objeto, se
 agrega su pixel art al `ART` del pack y se corren los tests.
 
 ```bash
-node --test tests/                                   # valida TODOS los episodios
+node --test "tests/*.test.js"                                   # valida TODOS los episodios
 node tools/storyboard.js <id> /tmp/x.png [t1 t2 …]   # dibuja instantes del episodio en un PNG
 omarchy restart shell                                # recargar el servicio
 omarchy-shell lnavarrocarter.cosmos episodes                  # lista los ids

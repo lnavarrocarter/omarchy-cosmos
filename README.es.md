@@ -216,7 +216,7 @@ partículas, disparos, cuerdas y rayos, y cuándo puede ocurrir cada episodio.
 ## Desarrollo
 
 ```bash
-node --test tests/                       # motor, física y todos los episodios de todos los packs
+node --test "tests/*.test.js"                       # motor, física y todos los episodios de todos los packs
 python3 -m unittest discover -s tests    # probes
 omarchy plugin validate .
 ```

@@ -19,7 +19,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Episodes, engine and physics
-        run: node --test tests/
+        run: node --test "tests/*.test.js"
       - name: Probes
         run: python3 -m unittest discover -s tests -v
       - name: Manifest and example config are valid JSON

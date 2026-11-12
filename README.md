@@ -211,7 +211,7 @@ ropes and beams, and when the episode may play.
 ## Development
 
 ```bash
-node --test tests/                       # engine, physics and every episode in every pack
+node --test "tests/*.test.js"                       # engine, physics and every episode in every pack
 python3 -m unittest discover -s tests    # probes
 omarchy plugin validate .
 ```
