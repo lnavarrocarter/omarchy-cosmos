@@ -150,5 +150,12 @@
   "studio.station.torus": "Toro",
   "studio.station.spire": "Aguja",
   "studio.station.citadel": "Ciudadela",
-  "studio.planet.forge": "Forja Rota"
+  "studio.planet.forge": "Forja Rota",
+  "studio.section.places": "Qué se ve",
+  "studio.hint.places": "Con una o dos pantallas, el protagonista se ve grande y el resto se suma chico a un lado. Con tres, cada uno tiene su pantalla.",
+  "studio.place.planet": "Planeta",
+  "studio.place.castaway": "Tu mini planeta",
+  "studio.place.station": "Estación",
+  "studio.hero": "Protagonista",
+  "studio.hint.hero": "El lugar que se ve grande cuando faltan pantallas."
 }

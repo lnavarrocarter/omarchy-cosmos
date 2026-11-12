@@ -339,6 +339,43 @@ Item {
             width: parent.width
             spacing: Style.spacing.md
 
+            // ------------------------------------------------ what shows, and the hero
+            Header { text: strings.t("studio.section.places") }
+            Text {
+              width: parent.width; wrapMode: Text.WordWrap
+              textFormat: Text.PlainText
+              text: strings.t("studio.hint.places")
+              color: studio.fg; opacity: 0.7
+              font.family: Style.font.family; font.pixelSize: Style.font.caption
+            }
+            Repeater {
+              model: ["planet", "castaway", "station"]
+              SwitchRow {
+                required property string modelData
+                st: studio
+                label: strings.t("studio.place." + modelData)
+                readonly property var shown: studio.cfg.show || ({})
+                checked: shown[modelData] !== false
+                onFlip: {
+                  var next = ({ planet: shown.planet !== false, castaway: shown.castaway !== false, station: shown.station !== false })
+                  next[modelData] = !checked
+                  // Keep at least one place on screen.
+                  if (!next.planet && !next.castaway && !next.station) return
+                  studio.save({ show: next })
+                }
+              }
+            }
+            ChoiceRow {
+              st: studio
+              label: strings.t("studio.hero")
+              hint: strings.t("studio.hint.hero")
+              value: studio.cfg.hero || "castaway"
+              options: [{ value: "planet", label: strings.t("studio.place.planet") },
+                        { value: "castaway", label: strings.t("studio.place.castaway") },
+                        { value: "station", label: strings.t("studio.place.station") }]
+              onPicked: function(v) { studio.save({ hero: v }) }
+            }
+
             Header { text: strings.t("studio.section.home") }
             Grid {
               columns: 2

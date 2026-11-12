@@ -34,7 +34,10 @@ function layout(world, attractors) {
   var planet = find(attractors, "planet")
   var castaway = find(attractors, "castaway")
   var station = find(attractors, "station")
-  var base = station || castaway || planet || { x: world.width / 2, y: world.height / 2 }
+  // Hangars sit under a full-size place; a small companion (zones.js) is too
+  // far off to the side of its screen to hold them.
+  function full(a) { return a && !(a.scale < 1) ? a : null }
+  var base = full(station) || full(castaway) || full(planet) || { x: world.width / 2, y: world.height / 2 }
   var spread = [-660, -220, 220, 660]
   var pads = {}
   for (var i = 0; i < AGENTS.length; i++)
@@ -82,7 +85,7 @@ function position(ship, ctx, t, index) {
     var moon = ship.workspace && ctx.moons ? ctx.moons[ship.workspace] : null
     var body = moon || ctx.planet || ctx.castaway || ctx.base
     target = { x: from.x + wrapDelta(body.x - from.x, ctx.W), y: body.y }
-    var R = moon ? 64 + index * 16 : (ctx.planet ? 330 : 230) + index * 45
+    var R = moon ? 64 + index * 16 : ((ctx.planet ? 330 : 230) + index * 45) * (body.scale || 1)
     var flat = moon ? 0.8 : 0.6
     var a0 = Math.atan2(from.y - target.y, from.x - target.x)
     var entry = { x: target.x + Math.cos(a0) * R, y: target.y + Math.sin(a0) * R * flat }
@@ -100,7 +103,8 @@ function position(ship, ctx, t, index) {
 
   if (ship.mode === "waiting") {
     target = ctx.castaway || ctx.base
-    var hover = { x: target.x - 240 + index * 160, y: target.y - 290 }
+    var k = target.scale || 1
+    var hover = { x: target.x + (-240 + index * 160) * k, y: target.y - 290 * k }
     if (e < HOVER_IN) {
       u = ease(e / HOVER_IN)
       mid = { x: (from.x + hover.x) / 2, y: Math.min(from.y, hover.y) - 120 }

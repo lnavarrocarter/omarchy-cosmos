@@ -150,5 +150,12 @@
   "studio.station.torus": "Torus",
   "studio.station.spire": "Spire",
   "studio.station.citadel": "Citadel",
-  "studio.planet.forge": "Broken Forge"
+  "studio.planet.forge": "Broken Forge",
+  "studio.section.places": "What's on screen",
+  "studio.hint.places": "With one or two screens, the hero stays big and the rest join as small companions to one side. With three, each has its own screen.",
+  "studio.place.planet": "Planet",
+  "studio.place.castaway": "Your little world",
+  "studio.place.station": "Station",
+  "studio.hero": "Hero",
+  "studio.hint.hero": "The place shown big when screens are short."
 }

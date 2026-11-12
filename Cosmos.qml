@@ -10,6 +10,7 @@ import "daycycle.js" as Day
 import "episodes.js" as Episodes
 import "looks.js" as Looks
 import "stationlife.js" as StationLife
+import "zones.js" as Zones
 
 // Cosmos: one living space scene spread across every screen.
 //
@@ -31,6 +32,10 @@ Item {
     verticalOffsets: ({}),
     zones: ({}),
     monitors: [],
+    // Which places to show, and the hero: with fewer screens than places the
+    // hero stays big and the rest join as small companions (zones.js).
+    show: ({ planet: true, castaway: true, station: true }),
+    hero: "castaway",
     rocks: 12,
     cats: 2,
     tourists: 1,
@@ -97,7 +102,7 @@ Item {
     // planet and switches take effect in place.
     var normLook = Looks.normalize(merged.look)
     var key = JSON.stringify([merged.bezelGap, merged.verticalOffsets, merged.zones, merged.monitors, merged.rocks,
-      merged.cats, merged.tourists, merged.satellites, merged.seed, normLook.home, normLook.station])
+      merged.cats, merged.tourists, merged.satellites, merged.seed, normLook.home, normLook.station, merged.show, merged.hero])
     if (key !== layoutKey) { layoutKey = key; rebuild() }
   }
 
@@ -194,16 +199,6 @@ Item {
   }
   onUsedScreensChanged: rebuild()
 
-  function zoneFor(name, index, count) {
-    var custom = cfg.zones && cfg.zones[name]
-    if (custom === "planet" || custom === "castaway" || custom === "station" || custom === "void") return custom
-    if (count === 1) return "castaway"
-    if (count === 2) return index === 0 ? "planet" : "castaway"
-    if (index === 0) return "planet"
-    if (index === count - 1) return "station"
-    return index === Math.floor(count / 2) ? "castaway" : "void"
-  }
-
   function zoneCenter(kind) {
     for (var i = 0; i < zones.length; i++) if (zones[i].kind === kind) return zones[i]
     return null
@@ -217,12 +212,22 @@ Item {
 
     var gap = cfg.bezelGap
     var offset = 0, height = 0, geo = ({}), zs = []
+    var plan = Zones.plan(list.map(function(sc) { return { name: sc.name } }),
+      { zones: cfg.zones, show: cfg.show, hero: cfg.hero })
+    // Every place on every screen: the screen's main one at full size, and
+    // any companions, scaled down.
+    var places = []
     for (var j = 0; j < list.length; j++) {
       var s = list[j]
       var lift = Number((cfg.verticalOffsets || {})[s.name]) || 0
       geo[s.name] = { x: offset, y: lift, w: s.width, h: s.height }
-      var kind = zoneFor(s.name, j, list.length)
+      var kind = plan[j].kind
       zs.push({ kind: kind, name: s.name, x: offset + s.width / 2, w: s.width, h: s.height, y0: lift })
+      if (kind !== "void") places.push({ kind: kind, x: offset + s.width * plan[j].fx, fy: plan[j].fy, scale: 1 })
+      for (var q = 0; q < plan[j].companions.length; q++) {
+        var cp = plan[j].companions[q]
+        places.push({ kind: cp.kind, x: offset + s.width * cp.fx, fy: cp.fy, scale: cp.scale })
+      }
       offset += s.width + gap
       height = Math.max(height, s.height)
     }
@@ -231,13 +236,17 @@ Item {
     zones = zs
 
     var at = []
-    var p = zoneCenter("planet"), c = zoneCenter("castaway"), st = zoneCenter("station")
-    if (p) at.push({ kind: "planet", x: p.x, y: height * 0.52, gm: 353000, soft: 30, radius: 250 })
     var homeLay = Looks.HOME_LAYOUT[look.home] || Looks.HOME_LAYOUT.island
-    if (c) at.push({ kind: "castaway", x: c.x, y: height * 0.62, gm: 45000, soft: 60, radius: homeLay.radius || 175,
-      solidDy: homeLay.solidDy || 0 })
-    if (st) at.push({ kind: "station", x: st.x, y: height * 0.40, gm: 60000, soft: 50,
-      radius: StationLife.layout(look.station).radius })
+    var base = {
+      planet: { gm: 353000, soft: 30, radius: 250 },
+      castaway: { gm: 45000, soft: 60, radius: homeLay.radius || 175, solidDy: homeLay.solidDy || 0 },
+      station: { gm: 60000, soft: 50, radius: StationLife.layout(look.station).radius }
+    }
+    for (var w = 0; w < places.length; w++) {
+      var pl = places[w], b = base[pl.kind], k = pl.scale
+      at.push({ kind: pl.kind, x: pl.x, y: height * pl.fy, gm: b.gm * k * k, soft: b.soft * k, radius: b.radius * k,
+        solidDy: (b.solidDy || 0) * k, scale: k })
+    }
     attractors = at
 
     buildSprites()
@@ -410,7 +419,7 @@ Item {
       if (entries.length === 0) entries = [{ name: "", kind: "decor" }, { name: "", kind: "decor" }]
       for (var k = 0; k < entries.length; k++) {
         var key = entries[k].name || ("#" + k)
-        var radius = 350 + k * 22
+        var radius = (350 + k * 22) * (planet.scale || 1)
         var body = kept[key]
         if (!body || Math.abs(body.orbitRadius - radius) > 1)
           body = Physics.orbitBody(++maxId, "moon", planet, radius, k * 2.4 + 0.4, false,
@@ -534,6 +543,8 @@ Item {
   function episodeCtx() {
     var p = null, c = null, s = null
     for (var i = 0; i < attractors.length; i++) {
+      // Episodes are drawn at full size: small companions (zones.js) don't host them.
+      if (attractors[i].scale < 1) continue
       if (attractors[i].kind === "planet") p = attractors[i]
       if (attractors[i].kind === "castaway") c = attractors[i]
       if (attractors[i].kind === "station") s = attractors[i]

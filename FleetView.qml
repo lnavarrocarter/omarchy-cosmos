@@ -30,7 +30,9 @@ Item {
   Item {
     visible: root.ready
     x: root.ready ? root.viewRef.localX(root.ctx.base.x) - 150 : 0
-    y: root.ready ? root.ctx.H * 0.66 : 0
+    // Under the station; when the hangars sit under another place (one or two
+    // screens, zones.js), down between the middle hangars, clear of it.
+    y: root.ready ? root.ctx.H * (root.ctx.base.kind === "station" ? 0.66 : 0.8) : 0
     width: 300; height: 64
 
     Rectangle {

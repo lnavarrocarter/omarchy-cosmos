@@ -95,6 +95,9 @@ scene, and every change shows as you make it:
 
 - **Scene**: turn each animation on or off (episodes, comets, warp, sun and moon, the hourly rocket, throwing rocks,
   weather), how often episodes play, how many rocks, cats and satellites drift by, the screensaver and the frame rate.
+- **What's on screen**: which of the planet, your little world and the station appear, and the hero: with one or two
+  screens the hero stays big and the others join as small companions to one side, so a single screen can hold all
+  three.
 - **Home, station & planet**: where the castaway lives (an island, a tiny planet with a house and a tree, a floating
   castle or a starship); the space station (classic, a big turning **torus**, a **spire** with solar wings and a hangar,
   or a hexagonal **citadel**), each with shuttles that come and go and crew on spacewalks; and the planet: ten presets
@@ -151,6 +154,8 @@ updates and reinstalls never touch it and edits apply on save. `config.example.j
 | `verticalOffsets` | per-monitor vertical shift in px, e.g. `{"DP-2": 40}` |
 | `zones` | per-monitor zone (`planet`, `castaway`, `station`, `void`), e.g. `{"HDMI-A-1": "station"}` |
 | `monitors` | only these monitors show Cosmos, e.g. `["DP-2"]`; empty means all (zones follow the ones listed) |
+| `show` | which places appear: `{"planet": true, "castaway": true, "station": true}` |
+| `hero` | with one or two screens, the place shown big (`planet`, `castaway` or `station`); the rest join as small companions to one side |
 | `rocks`, `cats`, `tourists`, `satellites` | how many drifting bodies |
 | `comets`, `cometEvery` | comets on or off, and their interval range in seconds |
 | `sceneSeconds` | min and max length of each island vignette |

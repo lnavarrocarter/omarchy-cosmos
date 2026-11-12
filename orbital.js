@@ -28,7 +28,7 @@ var STATIONS = [
 var MOTHERSHIPS = [
   { x: -238, y: -122, flip: false, ph: 0.0 },
   { x: 214, y: -146, flip: true, ph: 1.7 },
-  { x: 246, y: 118, flip: true, ph: 3.1 }
+  { x: 250, y: 64, flip: true, ph: 3.1 }
 ]
 var TURRETS = [2.72, 3.02, 0.3]
 var RANGE = 90

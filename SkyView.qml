@@ -224,12 +224,19 @@ Item {
     Repeater {
       model: view.sim.attractors
       Loader {
+        id: place
         required property var modelData
-        readonly property real span: modelData.kind === "planet" ? 1000 : 900
+        readonly property real k: modelData.scale || 1
+        readonly property real span: (modelData.kind === "planet" ? 1000 : 900) * k
         active: view.intersects(modelData.x - span / 2, span)
         sourceComponent: modelData.kind === "planet" ? planetComp
           : modelData.kind === "castaway" ? castawayComp : stationComp
         property var anchor: modelData
+        // A companion (zones.js) is the same place drawn smaller, around its centre.
+        transform: Scale {
+          origin.x: view.localX(modelData.x); origin.y: modelData.y
+          xScale: place.k; yScale: place.k
+        }
       }
     }
 

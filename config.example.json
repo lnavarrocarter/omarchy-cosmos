@@ -5,6 +5,12 @@
   "verticalOffsets": {},
   "zones": {},
   "monitors": [],
+  "show": {
+    "planet": true,
+    "castaway": true,
+    "station": true
+  },
+  "hero": "castaway",
   "rocks": 12,
   "cats": 2,
   "tourists": 1,

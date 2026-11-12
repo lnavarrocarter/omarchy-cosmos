@@ -127,7 +127,8 @@ Item {
       if (!sim.cfg.episodes) return none
       var home = null
       for (var h = 0; h < sim.attractors.length; h++) if (sim.attractors[h].kind === "castaway") home = sim.attractors[h]
-      if (!home) return none
+      // A small companion home plays no episodes, so it takes no clicks.
+      if (!home || home.scale < 1) return none
       var who = ["dog", "cat", "astronaut"][slot - 18]
       if (sim.islandHidden(who)) return none
       var ground = home.y - 40 + Math.round(Math.sin(sim.t * 0.5) * 3) * 2
@@ -145,7 +146,7 @@ Item {
       if (!sim.cfg.episodes) return none
       var isle = null
       for (var a = 0; a < sim.attractors.length; a++) if (sim.attractors[a].kind === "castaway") isle = sim.attractors[a]
-      if (!isle) return none
+      if (!isle || isle.scale < 1) return none
       return place(isle.x - 190, isle.y - 130, 380, 170, {
         target: "episode", title: strings.t("island.title"),
         lines: [strings.t(sim.episode ? "island.busy" : "island.click")]

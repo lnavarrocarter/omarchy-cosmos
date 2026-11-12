@@ -98,6 +98,9 @@ sobre la escena en vivo, y cada cambio se ve en el momento:
 - **Escena**: activa o desactiva cada animación (episodios, cometas, warp, sol y luna, el cohete de la hora, lanzar
   rocas, clima), cada cuánto hay episodios, cuántas rocas, gatos y satélites flotan, el salvapantallas y los cuadros por
   segundo.
+- **Qué se ve**: cuáles aparecen entre el planeta, tu mini planeta y la estación, y el protagonista: con una o dos
+  pantallas el protagonista se ve grande y los demás se suman chicos a un lado, así una sola pantalla puede tenerlos a
+  los tres.
 - **Casa, estación y planeta**: dónde vive el náufrago (una isla, un planetoide con casita y árbol, un castillo
   flotante o una nave); la estación espacial (clásica, un gran **toro** que gira, una **aguja** con alas solares y
   hangar, o una **ciudadela** hexagonal), todas con lanzaderas que llegan y salen y tripulación en caminata espacial; y
@@ -155,6 +158,8 @@ copia al lugar nuevo.)
 | `verticalOffsets` | desplazamiento vertical por monitor en px, por ejemplo `{"DP-2": 40}` |
 | `zones` | zona por monitor (`planet`, `castaway`, `station`, `void`), por ejemplo `{"HDMI-A-1": "station"}` |
 | `monitors` | solo estos monitores muestran Cosmos, por ejemplo `["DP-2"]`; vacío significa todos (las zonas siguen a los de la lista) |
+| `show` | qué lugares aparecen: `{"planet": true, "castaway": true, "station": true}` |
+| `hero` | con una o dos pantallas, el lugar que se ve grande (`planet`, `castaway` o `station`); el resto se suma chico a un lado |
 | `rocks`, `cats`, `tourists`, `satellites` | cuántos cuerpos flotan |
 | `comets`, `cometEvery` | cometas sí o no, y su intervalo en segundos |
 | `sceneSeconds` | duración mínima y máxima de cada escena de la isla |
