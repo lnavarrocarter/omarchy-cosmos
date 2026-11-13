@@ -199,7 +199,7 @@ presupuesto diario de tokens.
 - El widget de la barra muestra una luz de la flota y el combustible de cada agente.
 
 **Qué lee.** `fleet_probe.py` lee solo números: los tokens del día y la hora de los prompts en los registros de Claude
-Code (`~/.claude/projects`) y Codex (`~/.codex/sessions`). Nunca lee el texto de prompts ni respuestas. Su caché queda
+Code (`~/.claude/projects`), Codex (`~/.codex/sessions`) y GitHub Copilot CLI (`~/.copilot/session-state`). Nunca lee el texto de prompts ni respuestas. Su caché queda
 en `~/.cache/cosmos/`. Nada sale de tu computador. Si Codex registra los límites de su plan, su estanque muestra la ventana de límite
 más usada (5 horas o semanal) en vez de `budgets`.
 
@@ -214,6 +214,11 @@ pueda registrar, se descarta. Las tareas del Hub usan el mismo Ollama, así que 
 
 `"hub": true` también lee las tareas del plugin Coordination (`local.coordination`) si está instalado. Al hacer clic en
 una nave se abre ese plugin.
+
+Si el plugin Coordination incluye `usage.py` (su pestaña "Consumo de hoy"), los números de los agentes salen de ahí, así
+Cosmos y Coordination muestran lo mismo; aplica las mismas reglas de solo números y además lee el journal de
+`workbench-ollama`, salvo que `ollamaJournal` indique otra unidad. Sin él, Cosmos lee los registros por su cuenta como
+se describe arriba.
 
 | Clave | Qué hace |
 | --- | --- |

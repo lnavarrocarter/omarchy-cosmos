@@ -246,3 +246,17 @@ test("homes: palm episodes only on the island", () => {
   assert.strictEqual(E.eligible("dogFetch", ctx, { ...now, home: "ship" }), false, "click episodes stay event-only")
   assert.strictEqual(E.eligible("catdog", ctx, { ...now, home: "planetoid" }), true)
 })
+
+test("world positions centre on a screen, never on the bezel between two", () => {
+  // Two 1920 screens with a 40 px gap: the world's middle is the bezel.
+  const W = 3920, mid = 1920 + 40 + 960
+  const ctx = { W, H: 1080, mid, castaway: { x: mid, y: 670 }, planet: { x: 960, y: 562 }, station: null,
+    sun: { x: mid, y: 220 }, moon: { x: mid, y: 220 }, bob: 0, vars: {} }
+  const st = E.state("mothership", 40, ctx)
+  const mother = st.actors.find((a) => /^s3_mother/.test(a.sprite))
+  assert.ok(mother, "the mothership is out at t=40")
+  assert.ok(mother.x > 1960 + 300 && mother.x < W - 300, `hovers over the castaway's screen, not the bezel (x=${mother.x})`)
+  // Without mid, w0.5 is still the plain middle (one screen, older callers).
+  const plain = E.state("mothership", 40, Object.assign({}, ctx, { mid: undefined }))
+  assert.ok(Math.abs(plain.actors.find((a) => /^s3_mother/.test(a.sprite)).x - W / 2) < 40)
+})

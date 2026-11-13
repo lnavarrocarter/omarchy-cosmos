@@ -558,7 +558,15 @@ Item {
     var now = new Date()
     var vars = { time: Qt.formatTime(now, "HH:mm"), date: Qt.formatDate(now, "dd-MM") }
     for (var k in episodeVars) vars[k] = episodeVars[k]
-    return { W: world.width, H: world.height, planet: p, castaway: c, station: s, sun: sun, moon: moon,
+    // Where "w0.5" lands (episodes.js coord): the castaway's screen, or the
+    // screen nearest the middle, never the bezel between two screens.
+    var mid = c ? c.x : world.width / 2
+    if (!c) {
+      var best = 1e9
+      for (var z = 0; z < zones.length; z++)
+        if (Math.abs(zones[z].x - world.width / 2) < best) { best = Math.abs(zones[z].x - world.width / 2); mid = zones[z].x }
+    }
+    return { W: world.width, H: world.height, mid: mid, planet: p, castaway: c, station: s, sun: sun, moon: moon,
       bob: Math.round(Math.sin(t * 0.5) * 3) * 2, vars: vars }
   }
 

@@ -76,10 +76,10 @@ var EPISODES = [
           { t: 1.5, x: -378, y: "above" },
           { t: 4, x: -78, y: -100, ease: "out" },
           { t: 5.2, x: -78, y: -100 },
-          { t: 11, x: 560, y: "h0.3" },
-          { t: 25, x: 560, y: "h0.3" }
+          { t: 11, x: 300, y: "h0.3" },
+          { t: 25, x: 300, y: "h0.3" }
         ].concat(loop(25, 28, 560, 0.3, 70, 12), [
-          { t: 28, x: 560, y: "h0.3", ease: "linear", flip: true },
+          { t: 28, x: 300, y: "h0.3", ease: "linear", flip: true },
           { t: 35, x: -78, y: -100, flip: false },
           { t: 36.5, x: -78, y: -100 },
           { t: 40, x: 242, y: "above", ease: "in" }
@@ -92,8 +92,8 @@ var EPISODES = [
       { id: "pirate", sprite: "pirate", facesLeft: true, show: [7, 32],
         path: [
           { t: 7, x: 1480, y: "above" },
-          { t: 12, x: 980, y: "h0.3-30", ease: "out" },
-          { t: 24.6, x: 980, y: "h0.3-30", flip: true },
+          { t: 12, x: 720, y: "h0.2", ease: "out" },
+          { t: 24.6, x: 720, y: "h0.2", flip: true },
           { t: 32, x: 1880, y: "above", ease: "in", rot: 28 }
         ],
         wobble: [{ from: 12, to: 23.6, y: 20, speed: 1.1 }, { from: 23.6, to: 24.6, x: 4, y: 3, speed: 60, ramp: 0.05 },

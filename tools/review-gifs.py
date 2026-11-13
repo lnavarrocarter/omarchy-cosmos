@@ -12,7 +12,9 @@ Standard library only; nothing leaves the machine (the model is local).
 """
 import base64
 import json
+import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 from pathlib import Path
@@ -38,12 +40,28 @@ Answer with JSON only: {{"ok": true|false, "severity": "none"|"minor"|"major",
 "issues": ["short issue", ...], "summary": "one sentence of what happens"}}"""
 
 
+MAX_WIDTH = 1280
+
+
+def image_bytes(path):
+    """The sheet, scaled down to MAX_WIDTH when wider: a big image needs more
+    GPU memory than a 12 GB card has left for the vision encoder."""
+    with open(path, 'rb') as f:
+        head = f.read(24)
+    width = int.from_bytes(head[16:20], 'big') if head[:8] == b'\x89PNG\r\n\x1a\n' else 0
+    if width <= MAX_WIDTH:
+        return path.read_bytes()
+    with tempfile.NamedTemporaryFile(suffix='.png') as tmp:
+        subprocess.run(['magick', str(path), '-resize', f'{MAX_WIDTH}x', tmp.name], check=True)
+        return Path(tmp.name).read_bytes()
+
+
 def ask(image_path, meta, title, zone):
     prompt = PROMPT.format(screens=meta['screens'], places=', '.join(meta['places']), title=title, zone=zone,
                            frames=meta['frames'], empty=meta['emptyFrames'], offscreen=meta['offscreenActorFrames'],
                            actor_frames=meta['actorFrames'], missing=meta['missingSprites'] or 'none')
     body = json.dumps({'model': MODEL, 'prompt': prompt, 'stream': False, 'format': 'json',
-                       'images': [base64.b64encode(image_path.read_bytes()).decode()],
+                       'images': [base64.b64encode(image_bytes(image_path)).decode()],
                        'options': {'temperature': 0.1, 'num_ctx': 8192}}).encode()
     req = urllib.request.Request(HOST + '/api/generate', data=body, headers={'Content-Type': 'application/json'})
     with urllib.request.urlopen(req, timeout=600) as r:
@@ -65,7 +83,10 @@ def main():
     if log.exists():
         for line in log.read_text().splitlines():
             try:
-                done.add(json.loads(line)['sheet'])
+                row = json.loads(line)
+                # Only a real verdict counts as done; errors are retried.
+                if row.get('severity') in ('none', 'minor', 'major'):
+                    done.add(row['sheet'])
             except (ValueError, KeyError):
                 pass
     sheets = sorted(ROOT.glob('*/*s.png'))

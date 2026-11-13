@@ -31,11 +31,16 @@ class FleetProbeTest(unittest.TestCase):
         self.codex = root / 'codex'
         (self.claude / 'proj').mkdir(parents=True)
         (self.codex / '2026' / '11' / '11').mkdir(parents=True)
+        self.copilot = root / 'copilot'
+        (self.copilot / 's1').mkdir(parents=True)
+        self.root = root
         self.patches = [
             mock.patch.object(fleet_probe, 'CACHE', root / 'cache' / 'fleet.json'),
             mock.patch.object(fleet_probe, 'CLAUDE_ROOT', self.claude),
             mock.patch.object(fleet_probe, 'CODEX_ROOT', self.codex),
             mock.patch.object(fleet_probe, 'HUB_CLIENT', root / 'missing.py'),
+            mock.patch.object(fleet_probe, 'COPILOT_ROOT', self.copilot),
+            mock.patch.object(fleet_probe, 'COORDINATION_USAGE', root / 'missing-usage.py'),
         ]
         for p in self.patches:
             p.start()
@@ -275,6 +280,80 @@ class FleetProbeTest(unittest.TestCase):
         self.assertEqual((task['engine'], task['recent']), ('local', True))
         self.assertEqual(snap['agents']['local']['tokens_today'], 0)
         self.assertEqual(snap['agents']['local']['last_activity'], self.now + 5)
+
+    def copilot_event(self, ts, kind, data):
+        return {'type': kind, 'timestamp': iso(ts), 'data': data, 'id': 'x'}
+
+    def test_copilot_logs_without_coordination(self):
+        log = self.copilot / 's1' / 'events.jsonl'
+        self.write(log, [
+            self.copilot_event(self.now - 60, 'user.message', {'content': 'SECRET PROMPT', 'source': None}),
+            self.copilot_event(self.now - 60, 'user.message', {'content': 'SECRET', 'source': 'agent-1'}),
+            self.copilot_event(self.now - 59, 'assistant.turn_start', {'turnId': '0'}),
+            self.copilot_event(self.now - 58, 'session.usage_record', {'usage': {
+                'model': 'claude-sonnet-5.5', 'inputTokens': 41071, 'cacheReadTokens': 39073,
+                'outputTokens': 164, 'cost': 1.0, 'initiator': 'user'}}),
+        ])
+        snap = fleet_probe.snapshot(now=self.now, use_hub=False)
+        copilot = snap['agents']['copilot']
+        self.assertEqual((copilot['tokens_today'], copilot['prompts_today']), (1998 + 164, 1))
+        self.assertTrue(copilot['busy'])
+        self.assertNotIn('SECRET', json.dumps(snap) + fleet_probe.CACHE.read_text())
+        self.write(log, [self.copilot_event(self.now - 1, 'assistant.turn_end', {'turnId': '0'})])
+        self.assertFalse(fleet_probe.snapshot(now=self.now, use_hub=False)['agents']['copilot']['busy'])
+
+    STUB_USAGE = '''
+DEFAULT_UNIT = 'workbench-ollama'
+calls = []
+def snapshot(now=None, ollama_unit=None, use_hub=True, hub_client=None):
+    calls.append((ollama_unit, use_hub, hub_client.snapshot()['status'] if hub_client else None))
+    return {'agents': {
+        'claude': {'tokens': 4000, 'prompts': 3, 'last_activity': now - 10, 'busy': False},
+        'codex': {'tokens': 900, 'prompts': 1, 'last_activity': None, 'busy': True, 'limit_used': 54.0},
+        'copilot': {'tokens': 300, 'prompts': 2, 'last_activity': now - 5, 'busy': False, 'premium_requests': 2.0},
+        'local': {'tokens': 600, 'prompts': 7, 'last_activity': now - 1, 'busy': True}},
+        'models': [{'agent': 'local', 'model': 'qwen2.5vl:7b', 'tokens': 600}],
+        'events': [{'agent': 'local', 'at': now - 1, 'tokens': 50}, {'agent': 'local', 'at': now - 9999, 'tokens': 1}]}
+'''
+
+    def install_usage(self, source):
+        path = self.root / 'usage.py'
+        path.write_text(source)
+        return mock.patch.object(fleet_probe, 'COORDINATION_USAGE', path)
+
+    def test_uses_coordination_usage_when_installed(self):
+        # Logs here are ignored: Coordination's numbers win.
+        self.write(self.claude / 'proj' / 's.jsonl', [self.claude_assistant(self.now - 2, 'z')])
+        hub = FakeHub([{'id': 'a' * 32, 'status': 'running', 'execution': 'codex', 'metrics': None}])
+        with self.install_usage(self.STUB_USAGE):
+            module = fleet_probe.load_usage()
+            snap = fleet_probe.snapshot(now=self.now, hub_client=hub, usage_module=module)
+        self.assertEqual(snap['source'], 'coordination')
+        self.assertEqual(set(snap['agents']), set(fleet_probe.AGENTS))
+        self.assertEqual(snap['agents']['claude'], {'tokens_today': 4000, 'prompts_today': 3,
+                                                    'last_activity': self.now - 10, 'busy': False})
+        self.assertEqual(snap['agents']['codex']['limit_used'], 54.0)
+        self.assertTrue(snap['agents']['local']['busy'])
+        self.assertEqual(snap['events'], [{'agent': 'local', 'at': self.now - 1, 'tokens': 50}])
+        self.assertEqual(snap['hub']['tasks'][0]['engine'], 'codex')
+        # Cosmos' unset ollamaJournal defers to Coordination's default unit; one Hub request is shared.
+        self.assertEqual(module.calls, [('workbench-ollama', True, 'ready')])
+
+    def test_falls_back_to_own_logs_when_usage_fails(self):
+        self.write(self.claude / 'proj' / 's.jsonl', [self.claude_assistant(self.now - 2, 'z')])
+        with self.install_usage('def snapshot(**kwargs):\n    raise RuntimeError("boom")\n'):
+            snap = fleet_probe.snapshot(now=self.now, use_hub=False)
+        self.assertNotIn('source', snap)
+        self.assertEqual(snap['agents']['claude']['tokens_today'], 160)
+        with self.install_usage('this is not python ('):
+            self.assertIsNone(fleet_probe.load_usage())
+
+    def test_without_coordination_keeps_own_path(self):
+        self.assertIsNone(fleet_probe.load_usage())
+        self.write(self.claude / 'proj' / 's.jsonl', [self.claude_assistant(self.now - 2, 'z')])
+        snap = fleet_probe.snapshot(now=self.now, use_hub=False)
+        self.assertNotIn('source', snap)
+        self.assertEqual(snap['agents']['claude']['tokens_today'], 160)
 
     def test_cli_rejects_option_like_unit(self):
         self.assertFalse(fleet_probe.UNIT.fullmatch('--since=x'))

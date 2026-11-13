@@ -48,8 +48,11 @@ plan.forEach((p, i) => {
 })
 const W = offset
 const full = (kind) => places.find((p) => p.kind === kind && p.k === 1) || null
-const ctx = { W, H, planet: full("planet"), castaway: full("castaway"), station: full("station"),
-  sun: { x: W / 2, y: 220 }, moon: { x: W / 2, y: 220 }, bob: 0,
+const screenMid = screens.map((s) => s.x + s.w / 2).sort((a, b) => Math.abs(a - W / 2) - Math.abs(b - W / 2))[0]
+const ctx = { W, H, mid: full("castaway") ? full("castaway").x : screenMid,
+  planet: full("planet"), castaway: full("castaway"), station: full("station"),
+  // The sun and moon follow the time of day; put them on a screen, not a bezel.
+  sun: { x: screenMid, y: 220 }, moon: { x: screenMid, y: 220 }, bob: 0,
   vars: { agent: "codex", agentName: "Codex", agentColor: "#10a37f", time: "14:05", date: "12-11" } }
 if (!E.available(id, ctx)) { console.log(`${id} ${n}s: unavailable`); process.exit(0) }
 

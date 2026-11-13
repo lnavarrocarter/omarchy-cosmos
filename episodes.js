@@ -244,12 +244,21 @@ function envelope(e, from, to, ramp) {
 // Numbers are offsets from the anchor; strings are absolute:
 // "above"/"below" the screens, "w0.5" = half the world width, "h0.3-40".
 var ABS = /^([wh])(-?[0-9.]+)([+-][0-9.]+)?$/
-function coord(v, base, size) {
+// mid (optional, x only): where "w0.5" lands. The middle of the world is
+// the bezel between two screens when there are two, so ctx.mid is the
+// centre of a screen (the castaway's) and the rest of the width stretches
+// around it: w0 and w1 stay at the world's ends.
+function coord(v, base, size, mid) {
   if (typeof v === "number") return base + v
   if (v === "above") return -160
   if (v === "below") return size + 160
   var m = typeof v === "string" ? ABS.exec(v) : null
-  if (m) return size * Number(m[2]) + (m[3] ? Number(m[3]) : 0)
+  if (m) {
+    var f = Number(m[2]), off = m[3] ? Number(m[3]) : 0
+    if (m[1] === "w" && typeof mid === "number" && mid > 0 && mid < size)
+      return (f <= 0.5 ? f * 2 * mid : mid + (f * 2 - 1) * (size - mid)) + off
+    return size * f + off
+  }
   return base
 }
 
@@ -292,7 +301,7 @@ function point(f, e, env) {
     var o = actorAt(env, f.on, e)
     if (o) return { x: o.x + (o.flip ? -f.x : f.x), y: o.y + f.y }
   }
-  return { x: coord(f.x, env.anchor.x, env.ctx.W), y: coord(f.y, env.anchor.y, env.ctx.H) }
+  return { x: coord(f.x, env.anchor.x, env.ctx.W, env.ctx.mid), y: coord(f.y, env.anchor.y, env.ctx.H) }
 }
 
 function actorAt(env, id, e) {
@@ -509,7 +518,7 @@ function emit(env, em, idx, e, out) {
       ox = o.x + (o.flip ? -off[0] : off[0]); oy = o.y + off[1]
     } else {
       var rg = em.region || { x: 0, y: 0, w: 100, h: 100 }
-      var x0 = coord(rg.x, env.anchor.x, env.ctx.W), y0 = coord(rg.y, env.anchor.y, env.ctx.H)
+      var x0 = coord(rg.x, env.anchor.x, env.ctx.W, env.ctx.mid), y0 = coord(rg.y, env.anchor.y, env.ctx.H)
       ox = x0 + hash(s * 31 + 1) * coord(rg.w, 0, env.ctx.W)
       oy = y0 + hash(s * 57 + 2) * coord(rg.h, 0, env.ctx.H)
     }

@@ -4,14 +4,18 @@
 Reads, never writes anything but its own cache:
 - Hub tasks through the installed local.coordination hub_client (status,
   engine, tokens, elapsed). No prompt or summary text is passed on.
-- Today's token use and prompt count from local Claude Code and Codex CLI
-  session logs. Only usage numbers, record types and timestamps are read;
+- Today's token use and prompt count from local Claude Code, Codex CLI and
+  GitHub Copilot CLI session logs. Only usage numbers, record types and timestamps are read;
   message content is never copied out. Codex also reports its own plan
   limits (percent used per window), which size its fuel when present.
 - Optionally (--ollama UNIT, off by default; 'system:NAME' for a system unit) the local model's own token
   counts from its systemd user journal: only the numeric llama.cpp timing
   lines are matched; every other line, including any prompt text the
   server may log, is dropped unread.
+
+When the Coordination plugin is installed with its usage.py, agent numbers
+come from it instead (same numbers-only rules, one shared count of today's
+use per agent and model); otherwise the logs are read here.
 
 Logs are parsed incrementally: the cache keeps a byte offset per file, so a
 run only reads what was appended since the last one.
@@ -30,7 +34,10 @@ HOME = Path.home()
 CACHE = HOME / '.cache' / 'cosmos' / 'fleet.json'
 CLAUDE_ROOT = HOME / '.claude' / 'projects'
 CODEX_ROOT = HOME / '.codex' / 'sessions'
-HUB_CLIENT = HOME / '.config' / 'omarchy' / 'plugins' / 'local.coordination' / 'hub_client.py'
+COPILOT_ROOT = HOME / '.copilot' / 'session-state'
+COORDINATION = HOME / '.config' / 'omarchy' / 'plugins' / 'local.coordination'
+HUB_CLIENT = COORDINATION / 'hub_client.py'
+COORDINATION_USAGE = COORDINATION / 'usage.py'
 
 AGENTS = ('claude', 'codex', 'copilot', 'local')
 ENGINES = {'local', 'codex', 'claude', 'copilot'}
@@ -158,6 +165,35 @@ def codex_limits(value):
         out.append({'used': round(float(used), 1), 'resets': int(resets),
                     'minutes': clamp_int(window.get('window_minutes'), 10 ** 6)})
     return out or None
+
+
+def copilot_record(record):
+    """(kind, tokens, ts, None) for one GitHub Copilot CLI event, or None.
+
+    Prompt text fields are never accessed; a user.message only counts as a
+    typed prompt when its source is null (memory, system and agent-<id>
+    messages are injected).
+    """
+    if not isinstance(record, dict):
+        return None
+    kind = record.get('type')
+    data = record.get('data')
+    ts = parse_ts(record.get('timestamp'))
+    if ts is None or not isinstance(data, dict):
+        return None
+    if kind == 'session.usage_record':
+        usage = data.get('usage')
+        if not isinstance(usage, dict):
+            return None
+        fresh = max(0, clamp_int(usage.get('inputTokens')) - clamp_int(usage.get('cacheReadTokens')))
+        return ('usage', fresh + clamp_int(usage.get('outputTokens')), ts, None)
+    if kind == 'user.message':
+        return ('prompt', 0, ts, None) if data.get('source') is None else None
+    if kind == 'assistant.turn_start':
+        return ('turn_start', 0, ts, None)
+    if kind in ('assistant.turn_end', 'session.shutdown'):
+        return ('turn_end', 0, ts, None)
+    return None
 
 
 def recent_files(root, since, pattern='*.jsonl'):
@@ -324,13 +360,73 @@ def scan_ollama(cache, unit, now, reader=journal_lines):
                 add_usage(cache, 'local', totals, clamp_int(int(match.group(1))), ts, now)
 
 
-def load_hub():
-    if not HUB_CLIENT.is_file():
+def load_module(path, name):
+    if not path.is_file():
         return None
-    spec = importlib.util.spec_from_file_location('cosmos_hub_client', HUB_CLIENT)
+    spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def load_hub():
+    return load_module(HUB_CLIENT, 'cosmos_hub_client')
+
+
+def load_usage():
+    """Coordination's usage.py when installed, else None (Cosmos reads the logs itself)."""
+    try:
+        module = load_module(COORDINATION_USAGE, 'cosmos_coordination_usage')
+    except Exception:
+        return None
+    return module if module and callable(getattr(module, 'snapshot', None)) else None
+
+
+class OnceHub:
+    """One Hub request per probe, shared by usage.py and the task list."""
+    def __init__(self, client):
+        self.client = client
+        self.result = None
+
+    def snapshot(self):
+        if self.result is None:
+            try:
+                self.result = ('ok', self.client.snapshot())
+            except Exception as error:
+                self.result = ('error', error)
+        if self.result[0] == 'error':
+            raise self.result[1]
+        return self.result[1]
+
+
+def usage_agents(module, now, hub_client, use_hub, ollama_unit):
+    """(agents, events) in Cosmos' shape from Coordination's usage.py, or None."""
+    unit = ollama_unit or getattr(module, 'DEFAULT_UNIT', None)
+    try:
+        data = module.snapshot(now=now, ollama_unit=unit, use_hub=use_hub and hub_client is not None,
+                               hub_client=hub_client)
+    except Exception:
+        return None
+    raw = data.get('agents') if isinstance(data, dict) else None
+    if not isinstance(raw, dict):
+        return None
+    agents = {}
+    for name in AGENTS:
+        entry = raw.get(name) if isinstance(raw.get(name), dict) else {}
+        last = entry.get('last_activity')
+        agents[name] = {'tokens_today': clamp_int(entry.get('tokens', 0), MAX_TOKENS * 1000),
+                        'prompts_today': clamp_int(entry.get('prompts', 0), 100000),
+                        'last_activity': last if type(last) in (int, float) and last > 0 else None,
+                        'busy': entry.get('busy') is True}
+        used = entry.get('limit_used')
+        if type(used) in (int, float) and 0 <= used <= 100:
+            agents[name]['limit_used'] = float(used)
+    events = []
+    for event in data.get('events', [])[-MAX_EVENTS:] if isinstance(data.get('events'), list) else []:
+        if (isinstance(event, dict) and event.get('agent') in AGENTS and type(event.get('at')) in (int, float)
+                and now - event['at'] <= EVENT_WINDOW):
+            events.append({'agent': event['agent'], 'at': event['at'], 'tokens': clamp_int(event.get('tokens'))})
+    return agents, events
 
 
 def hub_tasks(cache, now, client=None, local_counted=False):
@@ -440,12 +536,30 @@ def limit_used(entry, now):
     return max([w['used'] for w in windows if w.get('resets', 0) > now] or [0.0])
 
 
-def snapshot(now=None, hub_client=None, use_hub=True, ollama_unit=None, journal_reader=journal_lines):
+def snapshot(now=None, hub_client=None, use_hub=True, ollama_unit=None, journal_reader=journal_lines,
+             usage_module=None):
     now = now or time.time()
+    usage = usage_module or load_usage()
+    if usage:
+        if use_hub:
+            try:
+                hub_client = OnceHub(hub_client or load_hub())
+            except Exception:
+                hub_client = None
+        result = usage_agents(usage, now, hub_client if use_hub else None, use_hub, ollama_unit)
+        if result:
+            cache = load_cache()
+            # The task list still comes from here; its tokens are already in usage.py's totals.
+            hub = (hub_tasks(cache, now, hub_client, local_counted=True) if use_hub
+                   else {'online': False, 'status': 'disabled', 'tasks': [], 'workspaces': []})
+            save_cache(cache, now)
+            agents, events = result
+            return {'time': round(now, 3), 'agents': agents, 'hub': hub, 'events': events, 'source': 'coordination'}
     cache = load_cache()
     midnight = datetime.fromtimestamp(now).replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
     scan(cache, 'claude', recent_files(CLAUDE_ROOT, midnight), claude_record, now)
     scan(cache, 'codex', recent_files(CODEX_ROOT, midnight), codex_record, now)
+    scan(cache, 'copilot', recent_files(COPILOT_ROOT, midnight, 'events.jsonl'), copilot_record, now)
     if ollama_unit:
         scan_ollama(cache, ollama_unit, now, journal_reader)
     hub = (hub_tasks(cache, now, hub_client, local_counted=bool(ollama_unit)) if use_hub

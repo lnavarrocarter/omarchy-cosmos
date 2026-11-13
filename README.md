@@ -194,7 +194,7 @@ and a local model). Each one gets a hangar, a ship and a fuel tank sized by `bud
 - The bar widget shows a fleet light and the fuel per agent.
 
 **What it reads.** `fleet_probe.py` reads usage numbers only: today's token counts and prompt times from the Claude Code
-(`~/.claude/projects`) and Codex (`~/.codex/sessions`) session logs. Prompt and answer text is never read out. Its cache
+(`~/.claude/projects`), Codex (`~/.codex/sessions`) and GitHub Copilot CLI (`~/.copilot/session-state`) session logs. Prompt and answer text is never read out. Its cache
 lives in `~/.cache/cosmos/`. Nothing leaves your computer. When Codex logs its plan limits, its fuel tank shows the most
 used limit window (5-hour or weekly) instead of `budgets`.
 
@@ -208,6 +208,10 @@ same Ollama, so their local tokens are not added twice.
 
 `"hub": true` also reads tasks from the Coordination plugin (`local.coordination`) when it is installed. Clicking a ship
 opens it.
+
+When the Coordination plugin ships `usage.py` (its "Today's usage" tab), the agent numbers come from it instead, so
+Cosmos and Coordination show the same counts; it applies the same numbers-only rules and also reads the
+`workbench-ollama` journal unless `ollamaJournal` names another unit. Without it, Cosmos reads the logs itself as above.
 
 | Key | Meaning |
 | --- | --- |
